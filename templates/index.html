@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Property Valuation — Premier Realty AI Tools{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-inner">
+    <p class="hero-eyebrow">AI-Powered Real Estate Intelligence</p>
+    <h1 class="hero-title">Instant Property <span class="gold">Valuation</span></h1>
+    <p class="hero-sub">Enter your property details below and our AI will generate a professional estimated value range, market context, and personalized recommendations — in seconds.</p>
+    <a href="#valuation" class="btn btn--gold">Get My Valuation &darr;</a>
+  </div>
+</section>
+
+<!-- Trust bar -->
+<div class="trust-bar">
+  <div class="trust-inner">
+    <div class="trust-item"><span class="trust-icon">🏠</span> AI-Powered Analysis</div>
+    <div class="trust-item"><span class="trust-icon">📊</span> Comp-Based Methodology</div>
+    <div class="trust-item"><span class="trust-icon">⚡</span> Results in Seconds</div>
+    <div class="trust-item"><span class="trust-icon">📄</span> Downloadable PDF Report</div>
+  </div>
+</div>
+
+<!-- Valuation Form -->
+<section class="section" id="valuation">
+  <div class="container">
+    <div class="section-header">
+      <p class="section-eyebrow">Free AI Valuation</p>
+      <h2 class="section-title">Tell Us About Your Property</h2>
+      <p class="section-sub">All fields help improve accuracy — fill in as much as you can.</p>
+    </div>
+
+    <form action="/analyze" method="POST" class="val-form" id="valForm">
+
+      <!-- Property Details Card -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <span class="card-num">01</span>
+          <div>
+            <h3 class="card-title">Property Details</h3>
+            <p class="card-sub">Basic information about the subject property</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label for="address">Property Address <span class="req">*</span></label>
+            <input type="text" id="address" name="address" placeholder="e.g. 142 Oak Street, Austin, TX 78701" required />
+          </div>
+
+          <div class="form-group">
+            <label for="beds">Bedrooms <span class="req">*</span></label>
+            <input type="number" id="beds" name="beds" min="0" max="20" placeholder="4" required />
+          </div>
+
+          <div class="form-group">
+            <label for="baths">Bathrooms <span class="req">*</span></label>
+            <input type="text" id="baths" name="baths" placeholder="2.5" required />
+          </div>
+
+          <div class="form-group">
+            <label for="sqft">Square Footage <span class="req">*</span></label>
+            <input type="text" id="sqft" name="sqft" placeholder="2,100" required />
+          </div>
+
+          <div class="form-group">
+            <label for="lot">Lot Size</label>
+            <input type="text" id="lot" name="lot" placeholder="0.25 acres  or  N/A" />
+          </div>
+
+          <div class="form-group">
+            <label for="year_built">Year Built</label>
+            <input type="number" id="year_built" name="year_built" min="1800" max="2025" placeholder="1998" />
+          </div>
+
+          <div class="form-group">
+            <label for="condition">Condition</label>
+            <select id="condition" name="condition">
+              <option value="Excellent">Excellent — fully updated, like new</option>
+              <option value="Good" selected>Good — well-maintained, minor updates needed</option>
+              <option value="Fair">Fair — some deferred maintenance</option>
+              <option value="Poor">Poor — significant work needed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comps Card -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <span class="card-num">02</span>
+          <div>
+            <h3 class="card-title">Recent Comparable Sales</h3>
+            <p class="card-sub">Add up to 3 recent sales near your property for a more accurate estimate</p>
+          </div>
+        </div>
+
+        {% for i in range(1, 4) %}
+        <div class="comp-row">
+          <div class="comp-label">Comp {{ i }}</div>
+          <div class="comp-fields">
+            <div class="form-group">
+              <label for="comp{{ i }}_address">Address</label>
+              <input type="text" id="comp{{ i }}_address" name="comp{{ i }}_address"
+                     placeholder="e.g. 138 Oak Street, Austin TX" />
+            </div>
+            <div class="form-group form-group--narrow">
+              <label for="comp{{ i }}_price">Sale Price</label>
+              <input type="text" id="comp{{ i }}_price" name="comp{{ i }}_price"
+                     placeholder="e.g. $410,000" />
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="form-submit-row">
+        <button type="submit" class="btn btn--gold btn--lg" id="submitBtn">
+          <span class="btn-text">Generate AI Valuation</span>
+          <span class="btn-loading" style="display:none;">Analyzing property…</span>
+        </button>
+        <p class="submit-note">Takes about 10–15 seconds. No signup required.</p>
+      </div>
+
+    </form>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="section section--gray">
+  <div class="container">
+    <div class="section-header">
+      <p class="section-eyebrow">The Process</p>
+      <h2 class="section-title">How It Works</h2>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-icon">📝</div>
+        <h4>Enter Details</h4>
+        <p>Fill in your property info and any recent nearby sales you know about.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon">🤖</div>
+        <h4>AI Analysis</h4>
+        <p>Claude analyzes your comps, adjusts for condition, and calculates a value range.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon">📊</div>
+        <h4>Get Your Report</h4>
+        <p>Receive an estimated range, market context, and 3 ways to maximize your sale price.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon">📄</div>
+        <h4>Download PDF</h4>
+        <p>Save or share a professional PDF report with your agent or family.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Contact -->
+<section class="section" id="contact">
+  <div class="container container--narrow">
+    <div class="section-header">
+      <p class="section-eyebrow">Work With a Pro</p>
+      <h2 class="section-title">Want a Professional CMA?</h2>
+      <p class="section-sub">Contact <strong>Agent Name</strong> for a full Comparative Market Analysis — a detailed, legally-sound valuation prepared by a licensed real estate professional. No obligation.</p>
+    </div>
+
+    <form action="/contact" method="POST" class="contact-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="contact_name">Your Name <span class="req">*</span></label>
+          <input type="text" id="contact_name" name="contact_name" placeholder="Jane Smith" required />
+        </div>
+        <div class="form-group">
+          <label for="contact_email">Email Address <span class="req">*</span></label>
+          <input type="email" id="contact_email" name="contact_email" placeholder="jane@email.com" required />
+        </div>
+        <div class="form-group">
+          <label for="contact_phone">Phone Number</label>
+          <input type="tel" id="contact_phone" name="contact_phone" placeholder="(555) 123-4567" />
+        </div>
+        <div class="form-group form-group--full">
+          <label for="contact_message">Message</label>
+          <textarea id="contact_message" name="contact_message" rows="4"
+                    placeholder="Tell me about the property you'd like me to evaluate…"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--navy">Send Message</button>
+    </form>
+  </div>
+</section>
+
+<script>
+document.getElementById("valForm").addEventListener("submit", function() {
+  document.querySelector(".btn-text").style.display = "none";
+  document.querySelector(".btn-loading").style.display = "inline";
+  document.getElementById("submitBtn").disabled = true;
+});
+</script>
+
+{% endblock %}

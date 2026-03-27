@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Mortgage Calculator — Premier Realty AI Tools{% endblock %}
+
+{% block content %}
+{% if embed %}
+<style>
+  .navbar, .footer { display: none !important; }
+  body { background: #f8f9fb; }
+  .calc-page { padding: 20px 16px 32px; }
+</style>
+{% endif %}
+
+<div class="calc-page">
+  {% if not embed %}
+  <div class="calc-hero">
+    <p class="section-eyebrow">Free Tool</p>
+    <h1 class="calc-hero-title">Mortgage Calculator</h1>
+    <p class="calc-hero-sub">Adjust the sliders to instantly see your monthly payment, total interest, and full amortization breakdown.</p>
+  </div>
+  {% endif %}
+
+  <div class="calc-layout">
+
+    <!-- ── Left: Controls + Summary ── -->
+    <div class="calc-left">
+
+      <div class="calc-card">
+        <h2 class="calc-card-title">Loan Parameters</h2>
+
+        <!-- Home Price -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label>Home Price</label>
+            <span class="slider-val" id="homePriceVal">$500,000</span>
+          </div>
+          <input type="range" id="homePrice" min="100000" max="2000000" step="5000" value="500000" class="slider" />
+          <div class="slider-minmax"><span>$100K</span><span>$2M</span></div>
+        </div>
+
+        <!-- Down Payment -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label>Down Payment</label>
+            <span class="slider-val" id="downPctVal">20% <span class="slider-sub" id="downAmt">= $100,000</span></span>
+          </div>
+          <input type="range" id="downPct" min="3" max="30" step="1" value="20" class="slider" />
+          <div class="slider-minmax"><span>3%</span><span>30%</span></div>
+        </div>
+
+        <!-- Interest Rate -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label>Interest Rate</label>
+            <span class="slider-val" id="rateVal">6.5%</span>
+          </div>
+          <input type="range" id="rate" min="3" max="10" step="0.1" value="6.5" class="slider" />
+          <div class="slider-minmax"><span>3%</span><span>10%</span></div>
+        </div>
+
+        <!-- Loan Term -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label>Loan Term</label>
+          </div>
+          <div class="term-toggle">
+            <button class="term-btn" id="term15" data-years="15">15 Years</button>
+            <button class="term-btn term-btn--active" id="term30" data-years="30">30 Years</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="stats-grid">
+        <div class="stat-card stat-card--featured">
+          <p class="stat-label">Monthly Payment</p>
+          <p class="stat-value" id="monthlyPayment">$2,528</p>
+          <p class="stat-sub">Principal + Interest</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Down Payment</p>
+          <p class="stat-value stat-value--sm" id="downPaymentAmt">$100,000</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Loan Amount</p>
+          <p class="stat-value stat-value--sm" id="loanAmount">$400,000</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Total Interest</p>
+          <p class="stat-value stat-value--sm" id="totalInterest">$510,177</p>
+        </div>
+        <div class="stat-card stat-card--full">
+          <p class="stat-label">Total Cost of Loan</p>
+          <p class="stat-value stat-value--sm" id="totalCost">$910,177</p>
+          <div class="cost-bar-wrap">
+            <div class="cost-bar-track">
+              <div class="cost-bar-principal" id="costBarPrincipal" style="width:44%"></div>
+              <div class="cost-bar-interest" id="costBarInterest" style="width:56%"></div>
+            </div>
+            <div class="cost-bar-legend">
+              <span><span class="legend-dot legend-dot--principal"></span>Principal <span id="principalPct">44%</span></span>
+              <span><span class="legend-dot legend-dot--interest"></span>Interest <span id="interestPct">56%</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- What can I afford? -->
+      <div class="afford-card" id="affordCard">
+        <div class="afford-header">
+          <div class="afford-icon">💰</div>
+          <div>
+            <h3 class="afford-title">What Can I Afford?</h3>
+            <p class="afford-sub">Enter your monthly income and Alex will estimate a comfortable price range.</p>
+          </div>
+        </div>
+
+        <div class="afford-input-row" id="affordInputRow">
+          <div class="afford-input-wrap">
+            <span class="afford-dollar">$</span>
+            <input type="number" id="incomeInput" placeholder="Monthly gross income" min="1000" max="999999" />
+          </div>
+          <button class="btn btn--navy" id="affordBtn">Ask Alex</button>
+        </div>
+
+        <!-- Chat area (hidden until first message) -->
+        <div class="afford-chat" id="affordChat" style="display:none">
+          <div class="afford-messages" id="affordMessages"></div>
+          <div class="afford-reply-row" id="affordReplyRow" style="display:none">
+            <input type="text" id="affordFollowup" placeholder="Ask a follow-up question…" />
+            <button class="btn btn--navy btn--sm" id="affordFollowBtn">Send</button>
+          </div>
+        </div>
+
+        <div class="afford-typing" id="affordTyping" style="display:none">
+          <div class="mini-typing-dots"><span></span><span></span><span></span></div>
+          <span>Alex is thinking…</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Right: Amortization Table ── -->
+    <div class="calc-right">
+      <div class="calc-card amort-card">
+        <div class="amort-header-row">
+          <h2 class="calc-card-title">Amortization Schedule</h2>
+          <span class="amort-note">First 24 months</span>
+        </div>
+        <div class="amort-scroll">
+          <table class="amort-table" id="amortTable">
+            <thead>
+              <tr>
+                <th>Mo.</th>
+                <th>Payment</th>
+                <th>Principal</th>
+                <th>Interest</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="amortBody">
+            </tbody>
+          </table>
+        </div>
+        {% if embed %}
+        <p class="amort-embed-cta">
+          Powered by <a href="/" target="_blank">Premier Realty AI Tools</a>
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /calc-layout -->
+
+  {% if not embed %}
+  <!-- Embed instructions -->
+  <div class="embed-section">
+    <div class="embed-card">
+      <h3 class="embed-title">📋 Embed This Calculator on Your Website</h3>
+      <p class="embed-desc">Copy and paste this code into any webpage to embed the calculator as an iframe.</p>
+      <div class="embed-code-wrap">
+        <code class="embed-code" id="embedCode">&lt;iframe src="{{ request.host_url }}calculator?embed=1" width="100%" height="760" frameborder="0" style="border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.12);"&gt;&lt;/iframe&gt;</code>
+        <button class="embed-copy-btn" id="embedCopyBtn">Copy Code</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- /calc-page -->
+
+<script src="{{ url_for('static', filename='calculator.js') }}"></script>
+{% endblock %}

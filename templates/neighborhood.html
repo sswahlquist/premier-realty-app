@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Neighborhood Intelligence — Premier Realty AI Tools{% endblock %}
+
+{% block content %}
+<div class="nbhd-page">
+
+  <!-- Hero -->
+  <div class="nbhd-hero">
+    <p class="section-eyebrow">AI-Powered Research</p>
+    <h1 class="nbhd-hero-title">Neighborhood Intelligence</h1>
+    <p class="nbhd-hero-sub">Get a comprehensive profile of any neighborhood — vibe, price trends, schools, transit, rental yield, and who it's best for.</p>
+
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button class="mode-btn mode-btn--active" id="modeSingle">🔍 Single Neighborhood</button>
+      <button class="mode-btn" id="modeCompare">⚖️ Compare Two</button>
+    </div>
+  </div>
+
+  <!-- Search forms -->
+  <div class="nbhd-search-wrap">
+
+    <!-- Single mode -->
+    <div class="search-card" id="formSingle">
+      <div class="search-row">
+        <div class="form-group">
+          <label for="s_name">Neighborhood Name</label>
+          <input type="text" id="s_name" placeholder="e.g. Wicker Park" />
+        </div>
+        <div class="form-group">
+          <label for="s_city">City</label>
+          <input type="text" id="s_city" placeholder="e.g. Chicago, IL" />
+        </div>
+        <button class="btn btn--gold btn--search" id="btnSingle">Analyze →</button>
+      </div>
+    </div>
+
+    <!-- Compare mode (hidden by default) -->
+    <div class="search-card" id="formCompare" style="display:none">
+      <div class="compare-inputs">
+        <div class="compare-col">
+          <p class="compare-col-label">Neighborhood A</p>
+          <div class="form-group">
+            <label for="c1_name">Neighborhood Name</label>
+            <input type="text" id="c1_name" placeholder="e.g. Wicker Park" />
+          </div>
+          <div class="form-group">
+            <label for="c1_city">City</label>
+            <input type="text" id="c1_city" placeholder="e.g. Chicago, IL" />
+          </div>
+        </div>
+        <div class="compare-vs">VS</div>
+        <div class="compare-col">
+          <p class="compare-col-label">Neighborhood B</p>
+          <div class="form-group">
+            <label for="c2_name">Neighborhood Name</label>
+            <input type="text" id="c2_name" placeholder="e.g. Logan Square" />
+          </div>
+          <div class="form-group">
+            <label for="c2_city">City</label>
+            <input type="text" id="c2_city" placeholder="e.g. Chicago, IL" />
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px;">
+        <button class="btn btn--gold btn--lg" id="btnCompare">Compare Neighborhoods →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Loading state -->
+  <div class="nbhd-loading" id="nbhdLoading" style="display:none">
+    <div class="loading-spinner"></div>
+    <p class="loading-text" id="loadingText">Analyzing neighborhood…</p>
+    <p class="loading-sub">Claude is researching local market conditions, schools, transit, and more.</p>
+  </div>
+
+  <!-- Error state -->
+  <div class="nbhd-error" id="nbhdError" style="display:none">
+    <p class="error-icon">⚠️</p>
+    <p class="error-msg" id="errorMsg">Something went wrong.</p>
+    <button class="btn btn--outline" onclick="resetPage()">Try Again</button>
+  </div>
+
+  <!-- Single result -->
+  <div id="singleResult" style="display:none">
+    <div class="result-header">
+      <div>
+        <p class="result-eyebrow" id="resultCity"></p>
+        <h2 class="result-name" id="resultName"></h2>
+        <p class="result-tagline" id="resultTagline"></p>
+      </div>
+      <button class="btn btn--outline btn--sm" onclick="resetPage()">← New Search</button>
+    </div>
+
+    <div class="profile-grid" id="profileGrid">
+      <!-- Injected by JS -->
+    </div>
+
+    <div class="nbhd-disclaimer">
+      <span class="disc-icon">ℹ️</span>
+      <span>This profile is AI-generated based on general knowledge and may not reflect current market conditions. Always verify with a local real estate professional and up-to-date MLS data before making decisions.</span>
+    </div>
+  </div>
+
+  <!-- Compare result -->
+  <div id="compareResult" style="display:none">
+    <div class="result-header">
+      <h2 class="result-name">Neighborhood Comparison</h2>
+      <button class="btn btn--outline btn--sm" onclick="resetPage()">← New Search</button>
+    </div>
+
+    <!-- Verdict bar -->
+    <div class="verdict-bar" id="verdictBar">
+      <!-- Injected by JS -->
+    </div>
+
+    <div class="compare-grid" id="compareGrid">
+      <!-- Two profile columns side by side -->
+    </div>
+
+    <div class="nbhd-disclaimer">
+      <span class="disc-icon">ℹ️</span>
+      <span>AI-generated comparison for general research only. Verify all information with local data and a licensed real estate agent.</span>
+    </div>
+  </div>
+
+</div><!-- /nbhd-page -->
+
+<script src="{{ url_for('static', filename='neighborhood.js') }}"></script>
+{% endblock %}

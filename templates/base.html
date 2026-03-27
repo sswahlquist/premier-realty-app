@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Premier Realty AI Tools{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='neighborhood.css') }}" />
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <span class="brand-icon">⌂</span>
+        <span class="brand-text">Premier Realty <span class="brand-accent">AI Tools</span></span>
+      </a>
+      <div class="nav-links">
+        <a href="/#valuation">Valuation</a>
+        <a href="/calculator">Calculator</a>
+        <a href="/neighborhood">Neighborhoods</a>
+        <a href="/#contact">Contact</a>
+      </div>
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for category, message in messages %}
+          <div class="flash flash--{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">Premier Realty AI Tools</div>
+      <p class="footer-note">AI-generated valuations are estimates for informational purposes only and do not constitute a formal appraisal.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
