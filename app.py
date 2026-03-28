@@ -8,7 +8,7 @@ import uuid
 import json
 import io
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash, jsonify
 
 import anthropic
 from reportlab.lib.pagesizes import letter
@@ -25,6 +25,28 @@ AI_MODEL = "claude-sonnet-4-20250514"
 
 # In-memory store for results (keyed by UUID)
 results_store: dict = {}
+
+# In-memory chat history store (keyed by session ID)
+chat_sessions: dict = {}
+
+ALEX_SYSTEM = """You are Alex, a friendly and knowledgeable real estate assistant for Premier Realty. You help buyers, sellers, renters, and investors with real estate questions.
+
+Your personality: warm, professional, genuinely helpful — like a trusted friend who happens to be a top real estate agent. Never robotic or salesy.
+
+Your job:
+1. Answer questions about buying, selling, renting, and investing in real estate clearly and helpfully.
+2. Ask qualifying questions naturally to understand what the visitor needs:
+   - What are they looking for? (buy/sell/rent/invest)
+   - What's their timeline?
+   - What's their budget or price range?
+   - What locations or neighborhoods interest them?
+   - Are they pre-approved for a mortgage (if buying)?
+3. When someone seems ready to take the next step, offer to schedule a consultation. Collect their name, email, phone number, and preferred time — one question at a time, naturally in conversation. When you have all four, confirm the appointment and tell them the team will reach out to confirm.
+4. If you collect appointment info (name, email, phone, preferred time), include this EXACTLY at the end of your message so it can be saved:
+   APPOINTMENT_DATA:{"name":"...","email":"...","phone":"...","time":"..."}
+5. Never give specific legal or financial advice. If asked, say something like "That's a great question for a licensed attorney / financial advisor — I'd recommend consulting one. What I can tell you generally is..."
+6. Keep responses concise — 2 to 4 short paragraphs max. Use a friendly, conversational tone.
+7. Remember everything from earlier in the conversation and refer back to it naturally."""
 
 
 # ── Claude integration ──────────────────────────────────────────────────────────
@@ -637,6 +659,71 @@ Rules: Be specific and honest. No markdown. Bullets start with "- ". Pipe "|" se
             "b": {"name": n2, "city": c2, "profile": profile_b},
             "comparison": comparison,
         })
+    except anthropic.AuthenticationError:
+        return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/chat")
+def chat():
+    return render_template("chat.html")
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data       = request.get_json()
+    message    = (data.get("message") or "").strip()
+    session_id = data.get("session_id") or str(uuid.uuid4())
+
+    if not message:
+        return jsonify({"error": "No message provided"}), 400
+
+    # Load or init conversation history
+    history = chat_sessions.get(session_id, [])
+    history.append({"role": "user", "content": message})
+
+    try:
+        client   = anthropic.Anthropic()
+        response = client.messages.create(
+            model=AI_MODEL,
+            max_tokens=600,
+            system=ALEX_SYSTEM,
+            messages=history,
+        )
+        reply = response.content[0].text.strip()
+
+        # Check for appointment data and save it
+        appt_marker = "APPOINTMENT_DATA:"
+        clean_reply  = reply
+        if appt_marker in reply:
+            try:
+                marker_pos = reply.find(appt_marker)
+                json_str   = reply[marker_pos + len(appt_marker):].strip()
+                # Find the JSON object
+                end_pos = json_str.find("}") + 1
+                appt    = json.loads(json_str[:end_pos])
+                # Save to file
+                with open("appointment_requests.txt", "a", encoding="utf-8") as f:
+                    f.write(f"\n{'='*50}\n")
+                    f.write(f"Date: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n")
+                    f.write(f"Name:  {appt.get('name','')}\n")
+                    f.write(f"Email: {appt.get('email','')}\n")
+                    f.write(f"Phone: {appt.get('phone','')}\n")
+                    f.write(f"Preferred Time: {appt.get('time','')}\n")
+                # Strip the data marker from the displayed reply
+                clean_reply = reply[:marker_pos].strip()
+            except Exception:
+                clean_reply = reply.replace(appt_marker, "").strip()
+
+        history.append({"role": "assistant", "content": reply})
+        chat_sessions[session_id] = history[-20:]  # Keep last 20 messages
+
+        return jsonify({
+            "reply":      clean_reply,
+            "session_id": session_id,
+        })
+
     except anthropic.AuthenticationError:
         return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
     except Exception as e:
