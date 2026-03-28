@@ -20,9 +20,20 @@
     <p class="value-label">Estimated Value Range</p>
     <p class="value-number">{{ analysis.ESTIMATED_VALUE }}</p>
     <div class="value-actions">
-      <a href="/download/{{ result_id }}" class="btn btn--gold">⬇ Download PDF Report</a>
+      {% if paid %}
+        <a href="/download/{{ result_id }}" class="btn btn--gold">⬇ Download PDF Report</a>
+      {% else %}
+        <form action="/create-checkout-session/{{ result_id }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn--gold">⬇ Download PDF — {{ price }}</button>
+        </form>
+      {% endif %}
       <a href="/" class="btn btn--outline">Run Another Valuation</a>
     </div>
+    {% if not paid %}
+    <p style="margin-top:12px;font-size:0.78rem;color:#adb5bd;">
+      🔒 Secure checkout via Stripe · One-time payment · Instant download
+    </p>
+    {% endif %}
   </div>
 
   <div class="results-grid">
@@ -117,11 +128,22 @@
   <!-- Download CTA -->
   <div class="download-cta">
     <h3>Ready to take the next step?</h3>
-    <p>Download your full report or connect with an agent for a professional CMA.</p>
+    <p>Download your full branded PDF report or connect with an agent for a professional CMA.</p>
     <div class="cta-btns">
-      <a href="/download/{{ result_id }}" class="btn btn--gold btn--lg">⬇ Download PDF Report</a>
+      {% if paid %}
+        <a href="/download/{{ result_id }}" class="btn btn--gold btn--lg">⬇ Download PDF Report</a>
+      {% else %}
+        <form action="/create-checkout-session/{{ result_id }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn--gold btn--lg">⬇ Download PDF — {{ price }}</button>
+        </form>
+      {% endif %}
       <a href="/#contact" class="btn btn--navy btn--lg">Talk to an Agent</a>
     </div>
+    {% if not paid %}
+    <p style="margin-top:14px;font-size:0.8rem;color:rgba(255,255,255,0.45);">
+      🔒 Secure checkout via Stripe · One-time payment · Instant download after payment
+    </p>
+    {% endif %}
   </div>
 
 </div>

@@ -7,10 +7,17 @@ import os
 import uuid
 import json
 import io
+import pathlib
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash, jsonify
 
 import anthropic
+import stripe
+
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
+REPORT_PRICE_CENTS = int(os.environ.get("REPORT_PRICE_CENTS", "999"))   # $9.99 default
+REPORTS_DIR = pathlib.Path("reports")
+
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -355,32 +362,58 @@ def analyze():
         flash(f"Something went wrong generating the analysis: {str(e)}", "error")
         return redirect(url_for("index"))
 
-    result_id = str(uuid.uuid4())
-    results_store[result_id] = {
-        "prop":     prop,
-        "comps":    comps,
-        "analysis": analysis,
+    result_id  = str(uuid.uuid4())
+    result_data = {
+        "prop":      prop,
+        "comps":     comps,
+        "analysis":  analysis,
         "generated": datetime.now().strftime("%B %d, %Y"),
+        "paid":      False,
     }
+    results_store[result_id] = result_data
+
+    # Persist to disk so it survives the Stripe redirect
+    REPORTS_DIR.mkdir(exist_ok=True)
+    (REPORTS_DIR / f"{result_id}.json").write_text(
+        json.dumps(result_data, default=str), encoding="utf-8"
+    )
 
     return redirect(url_for("results", result_id=result_id))
 
 
+def load_result(result_id):
+    """Load result from memory or disk."""
+    if result_id in results_store:
+        return results_store[result_id]
+    path = REPORTS_DIR / f"{result_id}.json"
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        results_store[result_id] = data
+        return data
+    return None
+
+
 @app.route("/results/<result_id>")
 def results(result_id):
-    data = results_store.get(result_id)
+    data = load_result(result_id)
     if not data:
         flash("Report not found or expired. Please submit a new valuation.", "error")
         return redirect(url_for("index"))
-    return render_template("results.html", result_id=result_id, **data)
+    return render_template("results.html", result_id=result_id,
+                           price=f"${REPORT_PRICE_CENTS/100:.2f}", **data)
 
 
 @app.route("/download/<result_id>")
 def download(result_id):
-    data = results_store.get(result_id)
+    data = load_result(result_id)
     if not data:
         flash("Report not found.", "error")
         return redirect(url_for("index"))
+
+    # Must be paid
+    if not data.get("paid"):
+        flash("Please complete payment to download your report.", "error")
+        return redirect(url_for("results", result_id=result_id))
 
     pdf_bytes = build_pdf(data["prop"], data["comps"], data["analysis"])
     address_slug = data["prop"]["address"].replace(" ", "_").replace(",", "")[:40]
@@ -392,6 +425,91 @@ def download(result_id):
         as_attachment=True,
         download_name=filename,
     )
+
+
+@app.route("/create-checkout-session/<result_id>", methods=["POST"])
+def create_checkout_session(result_id):
+    data = load_result(result_id)
+    if not data:
+        flash("Report not found.", "error")
+        return redirect(url_for("index"))
+
+    if not stripe.api_key:
+        flash("Payment system not configured. Contact the site administrator.", "error")
+        return redirect(url_for("results", result_id=result_id))
+
+    address = data["prop"]["address"]
+    base_url = request.host_url.rstrip("/")
+
+    try:
+        checkout = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": REPORT_PRICE_CENTS,
+                    "product_data": {
+                        "name": "AI Property Valuation Report",
+                        "description": f"Full branded PDF report — {address}",
+                        "images": [],
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=(
+                f"{base_url}/payment-success"
+                f"?session_id={{CHECKOUT_SESSION_ID}}&result_id={result_id}"
+            ),
+            cancel_url=f"{base_url}/results/{result_id}",
+            metadata={"result_id": result_id},
+        )
+        return redirect(checkout.url, code=303)
+
+    except stripe.error.StripeError as e:
+        flash(f"Payment error: {e.user_message or str(e)}", "error")
+        return redirect(url_for("results", result_id=result_id))
+
+
+@app.route("/payment-success")
+def payment_success():
+    session_id = request.args.get("session_id", "")
+    result_id  = request.args.get("result_id", "")
+
+    if not session_id or not result_id:
+        flash("Invalid payment confirmation.", "error")
+        return redirect(url_for("index"))
+
+    data = load_result(result_id)
+    if not data:
+        flash("Report not found.", "error")
+        return redirect(url_for("index"))
+
+    # Verify payment with Stripe
+    try:
+        checkout = stripe.checkout.Session.retrieve(session_id)
+        if checkout.payment_status == "paid":
+            data["paid"] = True
+            results_store[result_id] = data
+            # Update persisted file
+            path = REPORTS_DIR / f"{result_id}.json"
+            if path.exists():
+                path.write_text(json.dumps(data, default=str), encoding="utf-8")
+        else:
+            flash("Payment not confirmed. Please try again.", "error")
+            return redirect(url_for("results", result_id=result_id))
+    except stripe.error.StripeError as e:
+        flash(f"Could not verify payment: {str(e)}", "error")
+        return redirect(url_for("results", result_id=result_id))
+
+    return render_template("payment_success.html", result_id=result_id,
+                           address=data["prop"]["address"])
+
+
+@app.route("/payment-cancel/<result_id>")
+def payment_cancel(result_id):
+    flash("Payment cancelled. Your report is still available if you'd like to try again.", "error")
+    return redirect(url_for("results", result_id=result_id))
 
 
 @app.route("/calculator")
