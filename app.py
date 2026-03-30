@@ -848,6 +848,102 @@ def api_chat():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/listing")
+def listing():
+    return render_template("listing.html")
+
+
+@app.route("/api/listing", methods=["POST"])
+def api_listing():
+    data = request.get_json()
+
+    address  = (data.get("address") or "").strip()
+    beds     = (data.get("beds") or "").strip()
+    baths    = (data.get("baths") or "").strip()
+    sqft     = (data.get("sqft") or "").strip()
+    lot      = (data.get("lot") or "N/A").strip()
+    year     = (data.get("year_built") or "").strip()
+    price    = (data.get("price") or "").strip()
+    features = [f.strip() for f in data.get("features", []) if f.strip()]
+    vibe     = (data.get("neighborhood_vibe") or "").strip()
+    tone     = (data.get("tone") or "Professional").strip()
+
+    if not address or not sqft or len(features) < 3:
+        return jsonify({"error": "Please fill in address, sqft, and at least 3 features."}), 400
+
+    tone_desc = {
+        "Professional": "polished, precise, and authoritative — like a seasoned real estate professional",
+        "Warm/Friendly": "conversational, warm, and approachable — like a trusted friend in real estate",
+        "Luxury": "aspirational, evocative, and elevated — like a high-end luxury property brochure",
+    }.get(tone, "professional and warm")
+
+    features_text = "\n".join(f"  - {f}" for f in features)
+
+    prompt = f"""You are an expert real estate copywriter. Write THREE compelling MLS listing descriptions for this property.
+
+Tone for all versions: {tone} — {tone_desc}
+
+Property Details:
+- Address: {address}
+- Bedrooms: {beds} | Bathrooms: {baths}
+- Square Footage: {sqft} sq ft | Lot: {lot} | Year Built: {year}
+- Price: {price}
+- Neighborhood Vibe: {vibe}
+- Top Features:
+{features_text}
+
+Write exactly 200 words per version. Each must be unique in angle and audience focus.
+Use EXACTLY these markers (parsed programmatically):
+
+VERSION_1_LABEL: First-Time Buyers
+VERSION_1:
+[Focus: affordability, move-in readiness, value, pride of ownership, low-maintenance. No jargon.]
+
+VERSION_2_LABEL: Families
+VERSION_2:
+[Focus: space, safety, schools, neighborhood community, outdoor areas, room to grow, family lifestyle.]
+
+VERSION_3_LABEL: Investors
+VERSION_3:
+[Focus: rental income potential, appreciation, location fundamentals, low capex, strong tenant demand.]
+
+Each version must end with a call to action. No titles, no headers inside the descriptions."""
+
+    try:
+        client   = anthropic.Anthropic()
+        response = client.messages.create(
+            model=AI_MODEL,
+            max_tokens=1800,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text.strip()
+
+        # Parse the three versions
+        def extract(text, key):
+            marker = f"{key}:"
+            start  = text.find(marker)
+            if start == -1:
+                return ""
+            start += len(marker)
+            # find the next VERSION_ marker
+            import re
+            next_match = re.search(r"\nVERSION_\d", text[start:])
+            end = start + next_match.start() if next_match else len(text)
+            return text[start:end].strip()
+
+        versions = [
+            {"label": extract(raw, "VERSION_1_LABEL") or "First-Time Buyers",  "text": extract(raw, "VERSION_1")},
+            {"label": extract(raw, "VERSION_2_LABEL") or "Families",            "text": extract(raw, "VERSION_2")},
+            {"label": extract(raw, "VERSION_3_LABEL") or "Investors",           "text": extract(raw, "VERSION_3")},
+        ]
+        return jsonify({"ok": True, "versions": versions, "tone": tone})
+
+    except anthropic.AuthenticationError:
+        return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/contact", methods=["POST"])
 def contact():
     name    = request.form.get("contact_name", "").strip()

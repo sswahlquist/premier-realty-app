@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}Listing Generator — Premier Realty AI Tools{% endblock %}
+
+{% block content %}
+<style>
+/* ── Page hero ─────────────────────────────────────────────── */
+.listing-hero {
+  background: linear-gradient(135deg, #1a2332 0%, #2c3e55 100%);
+  padding: 64px 24px 56px;
+  text-align: center;
+  border-bottom: 4px solid #c8a97e;
+}
+.listing-hero h1 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  color: #fff;
+  margin: 12px 0 14px;
+}
+.listing-hero p { color: rgba(255,255,255,0.68); font-size: 1rem; max-width: 560px; margin: 0 auto; }
+
+/* ── Layout ────────────────────────────────────────────────── */
+.listing-wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 72px; }
+
+/* ── Form card ─────────────────────────────────────────────── */
+.listing-form-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(26,35,50,0.09);
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+.lfc-header {
+  background: #1a2332;
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lfc-num { font-size: 1.5rem; font-weight: 700; color: #c8a97e; font-family: 'Merriweather', serif; min-width: 36px; }
+.lfc-title { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.lfc-sub { font-size: 0.8rem; color: rgba(255,255,255,0.55); }
+.lfc-body { padding: 28px; }
+
+/* ── Grid ──────────────────────────────────────────────────── */
+.lg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+.lg-grid .full { grid-column: 1 / -1; }
+.lg-group { display: flex; flex-direction: column; gap: 6px; }
+.lg-group label { font-size: 0.82rem; font-weight: 600; color: #1a2332; }
+.lg-group input, .lg-group select, .lg-group textarea {
+  padding: 10px 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-family: 'Inter', sans-serif;
+  color: #2d3748;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.lg-group input:focus, .lg-group select:focus, .lg-group textarea:focus {
+  outline: none;
+  border-color: #c8a97e;
+  box-shadow: 0 0 0 3px rgba(200,169,126,0.18);
+}
+.req { color: #c8a97e; }
+
+/* ── Features grid ─────────────────────────────────────────── */
+.features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.feat-input { display: flex; align-items: center; gap: 8px; }
+.feat-num { font-size: 0.75rem; font-weight: 700; color: #c8a97e; min-width: 20px; }
+
+/* ── Tone selector ─────────────────────────────────────────── */
+.tone-options { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.tone-option { display: none; }
+.tone-label {
+  padding: 10px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6c757d;
+  transition: all 0.2s;
+  user-select: none;
+}
+.tone-option:checked + .tone-label {
+  border-color: #c8a97e;
+  background: #fdf8f2;
+  color: #1a2332;
+}
+
+/* ── Submit ────────────────────────────────────────────────── */
+.listing-submit-row { text-align: center; padding-top: 8px; }
+.listing-submit-note { font-size: 0.78rem; color: #adb5bd; margin-top: 10px; }
+
+/* ── Loading state ─────────────────────────────────────────── */
+.listing-loading {
+  display: none;
+  text-align: center;
+  padding: 48px 24px;
+  color: #6c757d;
+}
+.listing-loading.visible { display: block; }
+.loading-spinner {
+  width: 44px; height: 44px;
+  border: 3px solid #e9ecef;
+  border-top-color: #c8a97e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Results ────────────────────────────────────────────────── */
+.listing-results { display: none; }
+.listing-results.visible { display: block; }
+
+.results-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.results-header h2 {
+  font-family: 'Merriweather', serif;
+  color: #1a2332;
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+.results-header p { color: #6c757d; font-size: 0.9rem; }
+
+.version-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(26,35,50,0.08);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.vc-header {
+  background: #1a2332;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid #c8a97e;
+}
+.vc-label { color: #fff; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; }
+.vc-icon { font-size: 1.1rem; }
+.vc-body { padding: 24px; }
+.vc-text {
+  color: #2d3748;
+  line-height: 1.85;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+}
+.vc-footer {
+  padding: 12px 24px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.word-count { font-size: 0.78rem; color: #adb5bd; }
+.copy-btn {
+  padding: 8px 18px;
+  background: #1a2332;
+  color: #c8a97e;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+.copy-btn:hover { background: #2c3e55; }
+.copy-btn.copied { background: #276749; color: #fff; }
+
+.generate-again-row { text-align: center; margin-top: 32px; }
+
+/* ── Error ─────────────────────────────────────────────────── */
+.listing-error {
+  display: none;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-left: 4px solid #e53e3e;
+  border-radius: 8px;
+  padding: 14px 18px;
+  color: #c53030;
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+}
+.listing-error.visible { display: block; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .lg-grid { grid-template-columns: 1fr; }
+  .lg-grid .full { grid-column: 1; }
+  .features-grid { grid-template-columns: 1fr; }
+  .tone-options { flex-direction: column; }
+}
+</style>
+
+<!-- Hero -->
+<section class="listing-hero">
+  <p class="hero-eyebrow">AI Copywriting Tool</p>
+  <h1>MLS Listing Generator</h1>
+  <p>Enter your property details and get three professionally written listing descriptions — targeting first-time buyers, families, and investors — in seconds.</p>
+</section>
+
+<div class="listing-wrap">
+
+  <!-- Error -->
+  <div class="listing-error" id="listingError"></div>
+
+  <!-- Form -->
+  <form id="listingForm">
+
+    <!-- Card 1: Property Details -->
+    <div class="listing-form-card">
+      <div class="lfc-header">
+        <span class="lfc-num">01</span>
+        <div>
+          <div class="lfc-title">Property Details</div>
+          <div class="lfc-sub">Basic information about the listing</div>
+        </div>
+      </div>
+      <div class="lfc-body">
+        <div class="lg-grid">
+          <div class="lg-group full">
+            <label>Property Address <span class="req">*</span></label>
+            <input type="text" name="address" placeholder="e.g. 142 Oak Street, Austin, TX 78701" required />
+          </div>
+          <div class="lg-group">
+            <label>Bedrooms <span class="req">*</span></label>
+            <input type="number" name="beds" min="0" max="20" placeholder="4" required />
+          </div>
+          <div class="lg-group">
+            <label>Bathrooms <span class="req">*</span></label>
+            <input type="text" name="baths" placeholder="2.5" required />
+          </div>
+          <div class="lg-group">
+            <label>Square Footage <span class="req">*</span></label>
+            <input type="text" name="sqft" placeholder="2,100" required />
+          </div>
+          <div class="lg-group">
+            <label>Lot Size</label>
+            <input type="text" name="lot" placeholder="0.25 acres  or  N/A" />
+          </div>
+          <div class="lg-group">
+            <label>Year Built</label>
+            <input type="number" name="year_built" min="1800" max="2025" placeholder="1998" />
+          </div>
+          <div class="lg-group">
+            <label>Listing Price</label>
+            <input type="text" name="price" placeholder="$425,000" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Features -->
+    <div class="listing-form-card">
+      <div class="lfc-header">
+        <span class="lfc-num">02</span>
+        <div>
+          <div class="lfc-title">Top Features</div>
+          <div class="lfc-sub">List the 5 best selling points of this property</div>
+        </div>
+      </div>
+      <div class="lfc-body">
+        <div class="features-grid">
+          {% for i in range(1, 6) %}
+          <div class="feat-input">
+            <span class="feat-num">{{ i }}</span>
+            <input type="text" name="feature" class="feature-input"
+                   placeholder="e.g. {% if i==1 %}Updated kitchen{% elif i==2 %}Hardwood floors{% elif i==3 %}Large backyard{% elif i==4 %}Two-car garage{% else %}Cul-de-sac location{% endif %}" />
+          </div>
+          {% endfor %}
+        </div>
+        <div class="lg-grid" style="margin-top:20px;">
+          <div class="lg-group full">
+            <label>Neighborhood Vibe <span class="req">*</span></label>
+            <input type="text" name="neighborhood_vibe"
+                   placeholder="e.g. quiet family neighborhood close to top-rated schools" required />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Tone -->
+    <div class="listing-form-card">
+      <div class="lfc-header">
+        <span class="lfc-num">03</span>
+        <div>
+          <div class="lfc-title">Writing Tone</div>
+          <div class="lfc-sub">Choose the voice for all three descriptions</div>
+        </div>
+      </div>
+      <div class="lfc-body">
+        <div class="tone-options">
+          <input type="radio" name="tone" id="tone1" value="Professional" class="tone-option" checked />
+          <label for="tone1" class="tone-label">📋 Professional</label>
+
+          <input type="radio" name="tone" id="tone2" value="Warm/Friendly" class="tone-option" />
+          <label for="tone2" class="tone-label">😊 Warm & Friendly</label>
+
+          <input type="radio" name="tone" id="tone3" value="Luxury" class="tone-option" />
+          <label for="tone3" class="tone-label">✨ Luxury</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="listing-submit-row">
+      <button type="submit" class="btn btn--gold btn--lg" id="listingSubmitBtn">
+        <span id="btnText">✍️ Generate 3 Descriptions</span>
+        <span id="btnLoading" style="display:none;">Generating...</span>
+      </button>
+      <p class="listing-submit-note">Takes about 15 seconds · Powered by Claude AI</p>
+    </div>
+
+  </form>
+
+  <!-- Loading -->
+  <div class="listing-loading" id="listingLoading">
+    <div class="loading-spinner"></div>
+    <p style="font-weight:600;color:#1a2332;margin-bottom:6px;">Writing your descriptions...</p>
+    <p style="font-size:0.85rem;">Claude is crafting three unique versions tailored to each audience.</p>
+  </div>
+
+  <!-- Results -->
+  <div class="listing-results" id="listingResults">
+    <div class="results-header">
+      <h2>Your Listing Descriptions</h2>
+      <p id="resultsSubtitle">Three versions — ready to copy and paste</p>
+    </div>
+
+    <div id="versionsContainer"></div>
+
+    <div class="generate-again-row">
+      <button class="btn btn--outline" onclick="resetForm()">← Generate New Descriptions</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ICONS = ["🏠", "👨‍👩‍👧", "📈"];
+
+document.getElementById("listingForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  clearError();
+
+  const form     = e.target;
+  const address  = form.querySelector('[name="address"]').value.trim();
+  const sqft     = form.querySelector('[name="sqft"]').value.trim();
+  const vibe     = form.querySelector('[name="neighborhood_vibe"]').value.trim();
+  const features = [...form.querySelectorAll(".feature-input")]
+                     .map(i => i.value.trim()).filter(Boolean);
+
+  if (!address || !sqft || !vibe) {
+    showError("Please fill in address, square footage, and neighborhood vibe.");
+    return;
+  }
+  if (features.length < 3) {
+    showError("Please enter at least 3 property features.");
+    return;
+  }
+
+  const payload = {
+    address,
+    beds:              form.querySelector('[name="beds"]').value.trim(),
+    baths:             form.querySelector('[name="baths"]').value.trim(),
+    sqft,
+    lot:               form.querySelector('[name="lot"]').value.trim(),
+    year_built:        form.querySelector('[name="year_built"]').value.trim(),
+    price:             form.querySelector('[name="price"]').value.trim(),
+    neighborhood_vibe: vibe,
+    features,
+    tone:              form.querySelector('[name="tone"]:checked').value,
+  };
+
+  // Show loading
+  form.style.display = "none";
+  document.getElementById("listingLoading").classList.add("visible");
+  document.getElementById("listingResults").classList.remove("visible");
+
+  try {
+    const resp = await fetch("/api/listing", {
+      method:  "POST",
+      headers: {"Content-Type": "application/json"},
+      body:    JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    document.getElementById("listingLoading").classList.remove("visible");
+
+    if (data.error) {
+      form.style.display = "block";
+      showError(data.error);
+      return;
+    }
+
+    // Build result cards
+    const container = document.getElementById("versionsContainer");
+    container.innerHTML = "";
+    data.versions.forEach((v, i) => {
+      const wordCount = v.text.split(/\s+/).filter(Boolean).length;
+      container.innerHTML += `
+        <div class="version-card">
+          <div class="vc-header">
+            <div class="vc-label">
+              <span class="vc-icon">${ICONS[i]}</span>
+              Targeting: ${v.label}
+            </div>
+            <span style="color:rgba(255,255,255,0.45);font-size:0.75rem;">${payload.tone} tone</span>
+          </div>
+          <div class="vc-body">
+            <p class="vc-text" id="vtext${i}">${v.text}</p>
+          </div>
+          <div class="vc-footer">
+            <span class="word-count">~${wordCount} words</span>
+            <button class="copy-btn" onclick="copyText(${i}, this)">Copy</button>
+          </div>
+        </div>`;
+    });
+
+    document.getElementById("resultsSubtitle").textContent =
+      `${payload.tone} tone · ${address}`;
+    document.getElementById("listingResults").classList.add("visible");
+
+  } catch (err) {
+    document.getElementById("listingLoading").classList.remove("visible");
+    form.style.display = "block";
+    showError("Something went wrong. Please try again.");
+  }
+});
+
+function copyText(i, btn) {
+  const text = document.getElementById(`vtext${i}`).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "Copied ✓";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.textContent = "Copy";
+      btn.classList.remove("copied");
+    }, 2000);
+  });
+}
+
+function resetForm() {
+  document.getElementById("listingResults").classList.remove("visible");
+  document.getElementById("listingForm").style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showError(msg) {
+  const el = document.getElementById("listingError");
+  el.textContent = msg;
+  el.classList.add("visible");
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function clearError() {
+  document.getElementById("listingError").classList.remove("visible");
+}
+</script>
+{% endblock %}
