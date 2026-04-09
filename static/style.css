@@ -39,13 +39,16 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.22);
 }
-.nav-inner {
+
+/* Top row */
+.nav-top { border-bottom: 1px solid rgba(255,255,255,0.07); }
+.nav-top-inner {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 24px;
-  height: 64px;
+  padding: 0 28px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -59,17 +62,60 @@ body {
   font-weight: 700;
   font-size: 1.05rem;
 }
-.brand-icon { font-size: 1.4rem; color: var(--gold); }
+.brand-icon { font-size: 1.3rem; color: var(--gold); }
 .brand-accent { color: var(--gold); }
-.nav-links { display: flex; gap: 28px; align-items: center; }
-.nav-links a {
-  color: rgba(255,255,255,0.78);
+
+.nav-chat-cta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--gold);
+  color: var(--navy);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.2s;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 20px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
-.nav-links a:hover { color: var(--gold); }
+.nav-chat-cta:hover {
+  background: var(--gold-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(200,169,126,0.35);
+}
+
+/* Bottom row */
+.nav-bottom { background: rgba(0,0,0,0.15); }
+.nav-bottom-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.nav-bottom-inner a {
+  color: rgba(255,255,255,0.70);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.nav-bottom-inner a:hover {
+  color: var(--gold);
+  background: rgba(255,255,255,0.06);
+}
+.nav-divider {
+  color: rgba(255,255,255,0.2);
+  font-size: 0.75rem;
+  user-select: none;
+}
 
 /* ── Nav dropdown ─────────────────────────────────────────────── */
 .nav-dropdown { position: relative; }
