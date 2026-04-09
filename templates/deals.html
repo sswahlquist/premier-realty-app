@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+{% block title %}Stephen Wahlquist AI Consulting{% endblock %}
+
+{% block content %}
+<style>
+/* ── Hero ───────────────────────────────────────────────────── */
+.deals-hero {
+  background: linear-gradient(135deg, #1a2332 0%, #2c3e55 100%);
+  padding: 64px 24px 56px;
+  text-align: center;
+  border-bottom: 4px solid #c8a97e;
+}
+.deals-hero h1 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  color: #fff;
+  margin: 12px 0 14px;
+}
+.deals-hero p {
+  color: rgba(255,255,255,0.68);
+  font-size: 1rem;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+/* ── Page wrap ──────────────────────────────────────────────── */
+.deals-wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 72px; }
+
+/* ── Two-column form layout ─────────────────────────────────── */
+.deals-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* ── Section cards ──────────────────────────────────────────── */
+.deals-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(26,35,50,0.09);
+  overflow: hidden;
+}
+.dc-header {
+  background: #1a2332;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.dc-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #c8a97e;
+  font-family: 'Merriweather', serif;
+  min-width: 36px;
+}
+.dc-title { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.dc-sub   { font-size: 0.8rem; color: rgba(255,255,255,0.55); }
+.dc-body  { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Field groups ───────────────────────────────────────────── */
+.df-group { display: flex; flex-direction: column; gap: 5px; }
+.df-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1a2332;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.df-hint { font-size: 0.73rem; color: #adb5bd; font-weight: 400; }
+.df-group input,
+.df-group select {
+  padding: 10px 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-family: 'Inter', sans-serif;
+  color: #2d3748;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.df-group input:focus,
+.df-group select:focus {
+  outline: none;
+  border-color: #c8a97e;
+  box-shadow: 0 0 0 3px rgba(200,169,126,0.18);
+}
+.input-prefix-wrap {
+  position: relative;
+}
+.input-prefix-wrap .prefix {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #adb5bd;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.input-prefix-wrap input { padding-left: 22px; }
+.input-suffix-wrap { position: relative; }
+.input-suffix-wrap .suffix {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #adb5bd;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.input-suffix-wrap input { padding-right: 30px; }
+.req { color: #c8a97e; }
+
+/* ── Analyze button ─────────────────────────────────────────── */
+.deals-submit-row { text-align: center; margin-bottom: 40px; }
+.deals-submit-row .btn--gold {
+  font-size: 1.08rem;
+  padding: 16px 48px;
+  letter-spacing: 0.3px;
+}
+.deals-submit-note {
+  font-size: 0.78rem;
+  color: #adb5bd;
+  margin-top: 10px;
+}
+
+/* ── Error ──────────────────────────────────────────────────── */
+.deals-error {
+  display: none;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-left: 4px solid #e53e3e;
+  border-radius: 8px;
+  padding: 14px 18px;
+  color: #c53030;
+  font-size: 0.9rem;
+  margin-bottom: 28px;
+}
+.deals-error.visible { display: block; }
+
+/* ── Loading ────────────────────────────────────────────────── */
+.deals-loading {
+  display: none;
+  text-align: center;
+  padding: 56px 24px;
+}
+.deals-loading.visible { display: block; }
+.deals-spinner {
+  width: 48px; height: 48px;
+  border: 3px solid #e9ecef;
+  border-top-color: #c8a97e;
+  border-radius: 50%;
+  animation: dlSpin 0.8s linear infinite;
+  margin: 0 auto 18px;
+}
+@keyframes dlSpin { to { transform: rotate(360deg); } }
+
+/* ── Results ────────────────────────────────────────────────── */
+.deals-results { display: none; }
+.deals-results.visible { display: block; }
+
+.results-section-title {
+  font-family: 'Merriweather', serif;
+  font-size: 1.1rem;
+  color: #1a2332;
+  font-weight: 700;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.results-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e9ecef;
+}
+
+/* ── Metrics grid ───────────────────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.metric-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 18px 16px;
+  box-shadow: 0 2px 12px rgba(26,35,50,0.07);
+  text-align: center;
+}
+.metric-card--featured {
+  border-color: #c8a97e;
+  border-width: 2px;
+  background: linear-gradient(135deg, #1a2332 0%, #2c3e55 100%);
+}
+.metric-label {
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #adb5bd;
+  margin-bottom: 8px;
+}
+.metric-card--featured .metric-label { color: rgba(200,169,126,0.8); }
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a2332;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.metric-card--featured .metric-value { color: #fff; font-size: 1.7rem; }
+.metric-sub {
+  font-size: 0.74rem;
+  color: #adb5bd;
+}
+.metric-card--featured .metric-sub { color: rgba(255,255,255,0.5); }
+.metric-value--pos { color: #276749; }
+.metric-value--neg { color: #c53030; }
+.metric-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.metric-badge--green  { background: #c6f6d5; color: #276749; }
+.metric-badge--red    { background: #fed7d7; color: #c53030; }
+
+/* ── Expenses breakdown ─────────────────────────────────────── */
+.breakdown-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(26,35,50,0.07);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.breakdown-header {
+  background: #f8f9fa;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+.breakdown-header h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #6c757d;
+  margin: 0;
+}
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  color: #4a5568;
+  border-bottom: 1px solid #f1f3f5;
+}
+.breakdown-row:last-child { border-bottom: none; }
+.breakdown-row.total {
+  font-weight: 700;
+  color: #1a2332;
+  background: #f8f9fa;
+  border-top: 2px solid #e9ecef;
+  font-size: 0.9rem;
+}
+.breakdown-row.noi-row {
+  font-weight: 700;
+  background: linear-gradient(90deg, #f0fff4, #fff);
+  color: #276749;
+}
+.breakdown-row.cf-row { font-weight: 700; }
+.bd-label { color: #6c757d; }
+.bd-val   { font-weight: 600; }
+
+/* ── Deal score ─────────────────────────────────────────────── */
+.score-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(26,35,50,0.07);
+  margin-bottom: 28px;
+}
+.score-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.score-label-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+.score-number {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #1a2332;
+  line-height: 1;
+}
+.score-number span { font-size: 1rem; color: #adb5bd; font-weight: 400; }
+.score-bar-track {
+  height: 14px;
+  background: #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+.score-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #adb5bd;
+}
+.score-tier-labels {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.score-tier {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+.score-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Verdict banner ─────────────────────────────────────────── */
+.verdict-banner {
+  border-radius: 12px;
+  padding: 28px 28px 24px;
+  margin-bottom: 28px;
+  border: 2px solid transparent;
+}
+.verdict-banner--buy {
+  background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+  border-color: #48bb78;
+}
+.verdict-banner--caution {
+  background: linear-gradient(135deg, #fffff0 0%, #fefcbf 100%);
+  border-color: #ecc94b;
+}
+.verdict-banner--pass {
+  background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+  border-color: #fc8181;
+}
+.verdict-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.verdict-icon { font-size: 2.2rem; flex-shrink: 0; }
+.verdict-label {
+  font-family: 'Merriweather', serif;
+  font-size: clamp(1.2rem, 3vw, 1.7rem);
+  font-weight: 700;
+}
+.verdict-banner--buy     .verdict-label { color: #276749; }
+.verdict-banner--caution .verdict-label { color: #7b6200; }
+.verdict-banner--pass    .verdict-label { color: #c53030; }
+.verdict-summary {
+  font-size: 0.93rem;
+  line-height: 1.75;
+  color: #4a5568;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.verdict-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+.verdict-col-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.verdict-banner--buy     .verdict-col-title.strengths { color: #276749; }
+.verdict-banner--caution .verdict-col-title.strengths { color: #276749; }
+.verdict-banner--pass    .verdict-col-title.strengths { color: #276749; }
+.verdict-col-title.risks        { color: #c53030; }
+.verdict-col-title.improvements { color: #2b6cb0; }
+.verdict-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.verdict-list li {
+  font-size: 0.85rem;
+  color: #4a5568;
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+}
+.verdict-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.strengths  .verdict-list li::before { background: #48bb78; }
+.risks      .verdict-list li::before { background: #fc8181; }
+.improvements .verdict-list li::before { background: #63b3ed; }
+
+/* ── Download + reset ───────────────────────────────────────── */
+.deals-actions-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .deals-form-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .verdict-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<!-- Hero -->
+<section class="deals-hero">
+  <p class="hero-eyebrow">AI Investment Analysis</p>
+  <h1>Investment Deal Analyzer</h1>
+  <p>Get every key metric and an AI verdict — Strong Buy, Proceed with Caution, or Pass</p>
+</section>
+
+<div class="deals-wrap">
+
+  <!-- Error -->
+  <div class="deals-error" id="dealsError"></div>
+
+  <!-- Form -->
+  <form id="dealsForm" onsubmit="return false;">
+
+    <!-- Address (full-width above columns) -->
+    <div class="deals-card" style="margin-bottom:24px;">
+      <div class="dc-body" style="padding:20px 24px;">
+        <div class="df-group">
+          <label for="d_address">Property Address</label>
+          <input type="text" id="d_address" placeholder="e.g. 4821 Elm Street, Dallas, TX 75201" />
+        </div>
+      </div>
+    </div>
+
+    <div class="deals-form-grid">
+
+      <!-- Section 01: Purchase Details -->
+      <div class="deals-card">
+        <div class="dc-header">
+          <span class="dc-num">01</span>
+          <div>
+            <div class="dc-title">Purchase Details</div>
+            <div class="dc-sub">Financing and acquisition costs</div>
+          </div>
+        </div>
+        <div class="dc-body">
+          <div class="df-group">
+            <label for="d_price">Purchase Price <span class="req">*</span></label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_price" min="1000" step="1000" placeholder="325000" required />
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_down">Down Payment <span class="df-hint">% of purchase price</span></label>
+            <div class="input-suffix-wrap">
+              <input type="number" id="d_down" min="0" max="100" step="0.5" value="20" />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_rate">Annual Interest Rate</label>
+            <div class="input-suffix-wrap">
+              <input type="number" id="d_rate" min="0" max="25" step="0.05" value="7.25" />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_term">Loan Term</label>
+            <select id="d_term">
+              <option value="30" selected>30 Years</option>
+              <option value="15">15 Years</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 02: Income & Expenses -->
+      <div class="deals-card">
+        <div class="dc-header">
+          <span class="dc-num">02</span>
+          <div>
+            <div class="dc-title">Income &amp; Expenses</div>
+            <div class="dc-sub">Monthly figures (per month)</div>
+          </div>
+        </div>
+        <div class="dc-body">
+          <div class="df-group">
+            <label for="d_rent">Expected Monthly Rent <span class="req">*</span></label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_rent" min="0" step="50" placeholder="2200" required />
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_vacancy">Vacancy Rate <span class="df-hint">% of time unoccupied</span></label>
+            <div class="input-suffix-wrap">
+              <input type="number" id="d_vacancy" min="0" max="100" step="0.5" value="5" />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_tax">Monthly Property Tax</label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_tax" min="0" step="10" placeholder="350" />
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_insurance">Monthly Insurance</label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_insurance" min="0" step="10" placeholder="120" />
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_maintenance">Monthly Maintenance</label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_maintenance" min="0" step="10" placeholder="150" />
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_mgmt">Property Management <span class="df-hint">% of monthly rent</span></label>
+            <div class="input-suffix-wrap">
+              <input type="number" id="d_mgmt" min="0" max="30" step="0.5" value="10" />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+          <div class="df-group">
+            <label for="d_hoa">Monthly HOA</label>
+            <div class="input-prefix-wrap">
+              <span class="prefix">$</span>
+              <input type="number" id="d_hoa" min="0" step="10" value="0" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /deals-form-grid -->
+
+    <div class="deals-submit-row">
+      <button type="submit" class="btn btn--gold btn--lg" onclick="analyzeDeal()">
+        📊 Analyze This Deal
+      </button>
+      <p class="deals-submit-note">Calculates all key metrics · AI verdict powered by Claude · ~15 seconds</p>
+    </div>
+
+  </form>
+
+  <!-- Loading -->
+  <div class="deals-loading" id="dealsLoading">
+    <div class="deals-spinner"></div>
+    <p style="font-weight:600;color:#1a2332;margin-bottom:6px;">Running the numbers…</p>
+    <p style="font-size:0.85rem;color:#6c757d;">Calculating metrics and getting Claude's investment verdict.</p>
+  </div>
+
+  <!-- Results -->
+  <div class="deals-results" id="dealsResults">
+
+    <!-- Metrics grid -->
+    <p class="results-section-title">Key Metrics</p>
+    <div class="metrics-grid" id="metricsGrid"><!-- injected --></div>
+
+    <!-- Breakdown -->
+    <p class="results-section-title">Monthly Cash Flow Breakdown</p>
+    <div class="breakdown-card">
+      <div class="breakdown-header"><h4>Income &amp; Expense Detail</h4></div>
+      <div id="breakdownRows"><!-- injected --></div>
+    </div>
+
+    <!-- Deal score -->
+    <p class="results-section-title">Deal Score</p>
+    <div class="score-card">
+      <div class="score-top">
+        <div>
+          <div class="score-label-text">Overall Deal Score</div>
+          <div class="score-number"><span id="scoreNum">—</span> <span>/ 10</span></div>
+        </div>
+        <div class="score-tier-labels">
+          <div class="score-tier"><div class="score-dot" style="background:#c53030"></div>1–3 Weak</div>
+          <div class="score-tier"><div class="score-dot" style="background:#ecc94b"></div>4–6 Moderate</div>
+          <div class="score-tier"><div class="score-dot" style="background:#48bb78"></div>7–10 Strong</div>
+        </div>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" id="scoreBar" style="width:0%"></div>
+      </div>
+      <div class="score-ticks">
+        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+        <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+      </div>
+    </div>
+
+    <!-- Verdict -->
+    <p class="results-section-title">AI Verdict</p>
+    <div class="verdict-banner" id="verdictBanner">
+      <div class="verdict-top">
+        <div class="verdict-icon" id="verdictIcon">🏠</div>
+        <div class="verdict-label" id="verdictLabel">—</div>
+      </div>
+      <div class="verdict-summary" id="verdictSummary"></div>
+      <div class="verdict-cols">
+        <div>
+          <div class="verdict-col-title strengths">✅ Strengths</div>
+          <ul class="verdict-list strengths" id="verdictStrengths"></ul>
+        </div>
+        <div>
+          <div class="verdict-col-title risks">⚠️ Risks</div>
+          <ul class="verdict-list risks" id="verdictRisks"></ul>
+        </div>
+        <div>
+          <div class="verdict-col-title improvements">💡 Improvements</div>
+          <ul class="verdict-list improvements" id="verdictImprovements"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="deals-actions-row">
+      <button class="btn btn--gold" onclick="downloadReport()">⬇ Download Report (.txt)</button>
+      <button class="btn btn--outline" onclick="resetDeals()">← Analyze Another Deal</button>
+    </div>
+
+  </div><!-- /deals-results -->
+
+</div><!-- /deals-wrap -->
+
+<script>
+let lastMetrics = null;
+
+function fmt$(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const str = abs >= 1000
+    ? '$' + abs.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : '$' + abs.toFixed(2);
+  return n < 0 ? '-' + str : str;
+}
+function fmtPct(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return (n >= 0 ? '' : '-') + Math.abs(n).toFixed(2) + '%';
+}
+function fmtN(n, dec=1) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return parseFloat(n).toFixed(dec);
+}
+
+function showError(msg) {
+  const el = document.getElementById('dealsError');
+  el.textContent = msg;
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function clearError() {
+  document.getElementById('dealsError').classList.remove('visible');
+}
+
+async function analyzeDeal() {
+  clearError();
+
+  const price = parseFloat(document.getElementById('d_price').value);
+  const rent  = parseFloat(document.getElementById('d_rent').value);
+
+  if (!price || price <= 0) { showError('Please enter a valid purchase price.'); return; }
+  if (!rent  || rent  <= 0) { showError('Please enter a valid expected monthly rent.'); return; }
+
+  const payload = {
+    address:       document.getElementById('d_address').value.trim(),
+    purchase_price: price,
+    down_pct:      parseFloat(document.getElementById('d_down').value) || 20,
+    annual_rate:   parseFloat(document.getElementById('d_rate').value) || 7.25,
+    loan_term:     parseInt(document.getElementById('d_term').value) || 30,
+    monthly_rent:  rent,
+    vacancy_rate:  parseFloat(document.getElementById('d_vacancy').value) || 5,
+    monthly_tax:   parseFloat(document.getElementById('d_tax').value) || 0,
+    monthly_insurance:   parseFloat(document.getElementById('d_insurance').value) || 0,
+    monthly_maintenance: parseFloat(document.getElementById('d_maintenance').value) || 0,
+    mgmt_pct:      parseFloat(document.getElementById('d_mgmt').value) || 10,
+    monthly_hoa:   parseFloat(document.getElementById('d_hoa').value) || 0,
+  };
+
+  document.getElementById('dealsForm').style.display = 'none';
+  document.getElementById('dealsLoading').classList.add('visible');
+  document.getElementById('dealsResults').classList.remove('visible');
+
+  try {
+    const resp = await fetch('/deals/analyze', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    document.getElementById('dealsLoading').classList.remove('visible');
+
+    if (data.error) {
+      document.getElementById('dealsForm').style.display = 'block';
+      showError(data.error);
+      return;
+    }
+
+    lastMetrics = data.metrics;
+    renderResults(data.metrics);
+
+  } catch (err) {
+    document.getElementById('dealsLoading').classList.remove('visible');
+    document.getElementById('dealsForm').style.display = 'block';
+    showError('Something went wrong. Please try again.');
+  }
+}
+
+function renderResults(m) {
+  // ── Metrics grid ──────────────────────────────────────────────
+  const cfPos = m.monthly_cash_flow >= 0;
+  const cocPos = m.cash_on_cash >= 0;
+
+  document.getElementById('metricsGrid').innerHTML = `
+    <div class="metric-card metric-card--featured">
+      <div class="metric-label">Monthly Cash Flow</div>
+      <div class="metric-value">${fmt$(m.monthly_cash_flow)}</div>
+      <div class="metric-sub">After mortgage &amp; expenses</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cap Rate</div>
+      <div class="metric-value">${fmtPct(m.cap_rate)}</div>
+      <div class="metric-sub">Annual NOI ÷ purchase price</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cash-on-Cash</div>
+      <div class="metric-value ${cocPos ? 'metric-value--pos' : 'metric-value--neg'}">${fmtPct(m.cash_on_cash)}</div>
+      <div class="metric-sub">Annual cash flow ÷ cash invested</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">GRM</div>
+      <div class="metric-value">${fmtN(m.grm, 1)}</div>
+      <div class="metric-sub">Gross rent multiplier</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Annual NOI</div>
+      <div class="metric-value">${fmt$(m.annual_noi)}</div>
+      <div class="metric-sub">Net operating income / yr</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Monthly Mortgage</div>
+      <div class="metric-value">${fmt$(m.monthly_mortgage)}</div>
+      <div class="metric-sub">${m.loan_term_years}-yr fixed @ ${fmtN(m.annual_rate, 2)}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total Cash Invested</div>
+      <div class="metric-value">${fmt$(m.total_cash_invested)}</div>
+      <div class="metric-sub">Down + 3% closing costs</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">1% Rule</div>
+      <div class="metric-value" style="font-size:1.1rem;padding-top:4px;">
+        <span class="metric-badge ${m.one_pct_rule ? 'metric-badge--green' : 'metric-badge--red'}">
+          ${m.one_pct_rule ? '✓ PASSES' : '✗ FAILS'}
+        </span>
+      </div>
+      <div class="metric-sub">Need ${fmt$(m.one_pct_threshold)}/mo · Have ${fmt$(m.monthly_rent)}/mo</div>
+    </div>`;
+
+  // ── Breakdown ─────────────────────────────────────────────────
+  const bdRows = [
+    { label: 'Gross Monthly Rent',          val: m.monthly_rent,        type: 'income' },
+    { label: `Vacancy Loss (${m.vacancy_rate}%)`, val: -m.vacancy_loss, type: 'expense' },
+    { label: 'Effective Gross Income',       val: m.effective_gross,     type: 'subtotal' },
+    { label: 'Property Tax',                 val: -m.monthly_tax,        type: 'expense' },
+    { label: 'Insurance',                    val: -m.monthly_insurance,  type: 'expense' },
+    { label: 'Maintenance',                  val: -m.monthly_maintenance,type: 'expense' },
+    { label: `Property Mgmt (${m.monthly_hoa >= 0 ? m.mgmt_pct : ''}%)`, val: -m.management_fee, type: 'expense' },
+    { label: 'HOA',                          val: -m.monthly_hoa,        type: 'expense' },
+    { label: 'Total Expenses',               val: -m.monthly_expenses,   type: 'total' },
+    { label: 'Monthly NOI',                  val: m.monthly_noi,         type: 'noi' },
+    { label: 'Mortgage Payment',             val: -m.monthly_mortgage,   type: 'expense' },
+    { label: 'Monthly Cash Flow',            val: m.monthly_cash_flow,   type: 'cf' },
+  ];
+
+  const typeClass = { income: '', expense: '', subtotal: 'total', noi: 'noi-row', total: 'total', cf: 'cf-row' };
+  document.getElementById('breakdownRows').innerHTML = bdRows.map(r => {
+    const cls = typeClass[r.type] || '';
+    const valColor = r.val < 0 ? 'color:#c53030' : (r.val > 0 && r.type === 'cf' ? 'color:#276749' : '');
+    return `<div class="breakdown-row ${cls}">
+      <span class="bd-label">${r.label}</span>
+      <span class="bd-val" style="${valColor}">${fmt$(r.val)}</span>
+    </div>`;
+  }).join('');
+
+  // ── Score bar ─────────────────────────────────────────────────
+  const score = m.deal_score;
+  document.getElementById('scoreNum').textContent = score;
+  const pct   = ((score - 1) / 9) * 100;
+  const color = score <= 3 ? '#c53030' : score <= 6 ? '#ecc94b' : '#48bb78';
+  const bar   = document.getElementById('scoreBar');
+  bar.style.background = color;
+  setTimeout(() => { bar.style.width = pct + '%'; }, 50);
+
+  // ── Verdict ───────────────────────────────────────────────────
+  const v = (m.verdict || 'PROCEED WITH CAUTION').toUpperCase();
+  const banner = document.getElementById('verdictBanner');
+  banner.className = 'verdict-banner';
+
+  let bannerClass, icon, label;
+  if (v.includes('STRONG BUY')) {
+    bannerClass = 'verdict-banner--buy';
+    icon = '🟢'; label = 'Strong Buy';
+  } else if (v.includes('PASS')) {
+    bannerClass = 'verdict-banner--pass';
+    icon = '🔴'; label = 'Pass';
+  } else {
+    bannerClass = 'verdict-banner--caution';
+    icon = '🟡'; label = 'Proceed with Caution';
+  }
+  banner.classList.add(bannerClass);
+  document.getElementById('verdictIcon').textContent    = icon;
+  document.getElementById('verdictLabel').textContent   = label;
+  document.getElementById('verdictSummary').textContent = m.summary || '';
+
+  const renderList = (id, items) => {
+    document.getElementById(id).innerHTML = (items || []).map(i =>
+      `<li>${escHtml(i)}</li>`
+    ).join('');
+  };
+  renderList('verdictStrengths',    m.strengths);
+  renderList('verdictRisks',        m.risks);
+  renderList('verdictImprovements', m.improvements);
+
+  document.getElementById('dealsResults').classList.add('visible');
+  document.getElementById('dealsResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function downloadReport() {
+  if (!lastMetrics) return;
+  const m = lastMetrics;
+  const v = (m.verdict || '').includes('STRONG BUY') ? 'STRONG BUY'
+          : (m.verdict || '').includes('PASS')        ? 'PASS'
+          : 'PROCEED WITH CAUTION';
+
+  const lines = [
+    'INVESTMENT DEAL ANALYSIS REPORT',
+    'Stephen Wahlquist AI Consulting',
+    '='.repeat(48),
+    '',
+    m.address ? `Property: ${m.address}` : 'Property: Not specified',
+    `Generated: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`,
+    '',
+    'PURCHASE DETAILS',
+    '-'.repeat(32),
+    `Purchase Price:      ${fmt$(m.purchase_price)}`,
+    `Down Payment:        ${m.down_pct}% (${fmt$(m.down_payment)})`,
+    `Loan Amount:         ${fmt$(m.loan_amount)}`,
+    `Interest Rate:       ${fmtN(m.annual_rate, 2)}%`,
+    `Loan Term:           ${m.loan_term_years} years`,
+    `Monthly Mortgage:    ${fmt$(m.monthly_mortgage)}`,
+    '',
+    'INCOME & EXPENSES (Monthly)',
+    '-'.repeat(32),
+    `Gross Rent:          ${fmt$(m.monthly_rent)}`,
+    `Vacancy Loss:        -${fmt$(m.vacancy_loss)}`,
+    `Effective Gross:     ${fmt$(m.effective_gross)}`,
+    `Property Tax:        -${fmt$(m.monthly_tax)}`,
+    `Insurance:           -${fmt$(m.monthly_insurance)}`,
+    `Maintenance:         -${fmt$(m.monthly_maintenance)}`,
+    `Mgmt Fee:            -${fmt$(m.management_fee)}`,
+    `HOA:                 -${fmt$(m.monthly_hoa)}`,
+    `Total Expenses:      -${fmt$(m.monthly_expenses)}`,
+    '',
+    'KEY METRICS',
+    '-'.repeat(32),
+    `Monthly NOI:         ${fmt$(m.monthly_noi)}`,
+    `Annual NOI:          ${fmt$(m.annual_noi)}`,
+    `Monthly Cash Flow:   ${fmt$(m.monthly_cash_flow)}`,
+    `Annual Cash Flow:    ${fmt$(m.annual_cash_flow)}`,
+    `Cap Rate:            ${fmtPct(m.cap_rate)}`,
+    `Cash-on-Cash:        ${fmtPct(m.cash_on_cash)}`,
+    `GRM:                 ${fmtN(m.grm, 1)}`,
+    `1% Rule:             ${m.one_pct_rule ? 'PASSES' : 'FAILS'} (need ${fmt$(m.one_pct_threshold)}/mo)`,
+    `Total Cash Invested: ${fmt$(m.total_cash_invested)}`,
+    `Deal Score:          ${m.deal_score}/10`,
+    '',
+    'AI VERDICT',
+    '-'.repeat(32),
+    `Verdict: ${v}`,
+    '',
+    m.summary || '',
+    '',
+    'Strengths:',
+    ...(m.strengths || []).map(s => `  • ${s}`),
+    '',
+    'Risks:',
+    ...(m.risks || []).map(r => `  • ${r}`),
+    '',
+    'Ways to Improve the Deal:',
+    ...(m.improvements || []).map(i => `  • ${i}`),
+    '',
+    '='.repeat(48),
+    'AI-generated analysis for informational purposes only.',
+    'Always consult a licensed financial advisor before investing.',
+  ];
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const slug = (m.address || 'deal').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+  a.download = `Deal_Analysis_${slug}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetDeals() {
+  document.getElementById('dealsResults').classList.remove('visible');
+  document.getElementById('dealsForm').style.display = 'block';
+  clearError();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+
+{% endblock %}
