@@ -109,13 +109,17 @@ def _fetch_zillow_sold(location: str, beds: str, sqft: str) -> list[dict]:
         return []
 
     RAPIDAPI_HOST = "zillow-scraper-api.p.rapidapi.com"
+    headers = {
+        "X-RapidAPI-Key":  RAPIDAPI_KEY,
+        "X-RapidAPI-Host": RAPIDAPI_HOST,
+    }
 
     params: dict = {
-        "location": location,
-        "status":   "sold",
-        "sortBy":   "newest",
+        "location":   location,
+        "status":     "recently_sold",
+        "sortBy":     "newest",
+        "home_type":  "Houses",
     }
-    # Soft bed filter — ±1 bed
     if beds:
         try:
             b = int(beds)
@@ -124,19 +128,29 @@ def _fetch_zillow_sold(location: str, beds: str, sqft: str) -> list[dict]:
         except ValueError:
             pass
 
-    r = requests.get(
-        f"https://{RAPIDAPI_HOST}/search",
-        headers={
-            "X-RapidAPI-Key":  RAPIDAPI_KEY,
-            "X-RapidAPI-Host": RAPIDAPI_HOST,
-        },
-        params=params,
-        timeout=12,
-    )
-    r.raise_for_status()
-    body = r.json()
-    # PullAPI returns results under "results" or "props" depending on version
-    return body.get("results") or body.get("props") or body.get("listings") or []
+    # Try the correct endpoint path for PullAPI
+    for path in ["/zillow/search", "/zillow/search/by-location", "/search"]:
+        r = requests.get(
+            f"https://{RAPIDAPI_HOST}{path}",
+            headers=headers,
+            params=params,
+            timeout=12,
+        )
+        if r.status_code == 200:
+            body = r.json()
+            # Response: { data: { listings: [...] } } or { listings: [...] }
+            listings = (
+                (body.get("data") or {}).get("listings")
+                or body.get("listings")
+                or body.get("results")
+                or body.get("props")
+                or []
+            )
+            return listings
+        if r.status_code != 404:
+            r.raise_for_status()
+
+    return []
 
 
 def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
@@ -162,8 +176,8 @@ def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
         price     = r.get("soldPrice") or r.get("price") or 0
         beds      = r.get("bedrooms", "")
         baths     = r.get("bathrooms", "")
-        living    = r.get("livingArea", "")
-        year      = r.get("yearBuilt", "")
+        living    = r.get("living_area_sqft") or r.get("livingArea", "")
+        year      = r.get("year_built") or r.get("yearBuilt", "")
         lat       = r.get("latitude")
         lon       = r.get("longitude")
 
@@ -189,7 +203,7 @@ def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
 
         # Date sold (field varies by API version)
         date_sold = (r.get("dateSoldString") or r.get("dateSold") or
-                     r.get("sold_date") or "Recent")
+                     r.get("sold_date") or r.get("date_sold") or "")
         if date_sold and len(date_sold) >= 7:
             try:
                 from datetime import datetime as dt
@@ -197,6 +211,17 @@ def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
                 date_sold = d.strftime("%B %Y")
             except Exception:
                 pass
+        if not date_sold:
+            days = r.get("days_on_zillow")
+            if days is not None:
+                try:
+                    from datetime import datetime as dt, timedelta
+                    sold_dt = dt.now() - timedelta(days=int(days))
+                    date_sold = sold_dt.strftime("%B %Y")
+                except Exception:
+                    date_sold = "Recent"
+            else:
+                date_sold = "Recent"
 
         comps.append({
             "address":  full_addr,
