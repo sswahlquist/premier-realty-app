@@ -1303,6 +1303,108 @@ Each version must end with a call to action. No titles, no headers inside the de
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/comps")
+def comps():
+    # Allow pre-filling address from query string (linked from valuation results)
+    address = request.args.get("address", "")
+    return render_template("comps.html", prefill_address=address)
+
+
+@app.route("/api/comps", methods=["POST"])
+def api_comps():
+    data    = request.get_json()
+    address = (data.get("address") or "").strip()
+    beds    = (data.get("beds") or "").strip()
+    baths   = (data.get("baths") or "").strip()
+    sqft    = (data.get("sqft") or "").strip()
+    year    = (data.get("year_built") or "").strip()
+    price_range = (data.get("price_range") or "").strip()
+
+    if not address:
+        return jsonify({"error": "Property address is required."}), 400
+
+    prop_details = f"Address: {address}"
+    if beds:   prop_details += f"\nBedrooms: {beds}"
+    if baths:  prop_details += f"\nBathrooms: {baths}"
+    if sqft:   prop_details += f"\nSquare Footage: {sqft} sq ft"
+    if year:   prop_details += f"\nYear Built: {year}"
+    if price_range: prop_details += f"\nExpected Price Range: {price_range}"
+
+    prompt = f"""You are a licensed real estate appraiser with deep knowledge of local markets. Generate 6 realistic recent comparable sales near the subject property below. Base your estimates on the actual market for that city/state.
+
+SUBJECT PROPERTY:
+{prop_details}
+
+For each comp, use EXACTLY these markers (parsed programmatically — do not deviate):
+
+COMP_1_ADDRESS:
+[Full street address, city, state — in same general area as subject, not the same street]
+COMP_1_SPECS:
+[X bed / X bath / X,XXX sq ft / Built XXXX]
+COMP_1_PRICE:
+[$XXX,XXX]
+COMP_1_DATE:
+[Month Year — within last 12 months, vary dates across all 6 comps]
+COMP_1_DISTANCE:
+[X.X miles away]
+COMP_1_NOTES:
+[One sentence: key similarities or differences vs subject property that affect the price comparison. Be specific — mention condition, updates, lot size difference, etc.]
+
+COMP_2_ADDRESS:
+...
+(continue through COMP_6)
+
+Rules:
+- All 6 comps must be in the same city/metro area as the subject
+- Vary prices realistically — don't make them all identical
+- Vary distances from 0.2 to 1.5 miles
+- Make specs realistic for the neighborhood (don't put a 5,000 sq ft mansion next to a 900 sq ft starter home area)
+- NOTES must be specific and useful for comparison, not generic
+- No markdown, no asterisks, no extra formatting"""
+
+    try:
+        client   = anthropic.Anthropic()
+        response = client.messages.create(
+            model=AI_MODEL,
+            max_tokens=1800,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text.strip()
+
+        comps_list = []
+        for n in range(1, 7):
+            def _get(key):
+                marker = f"COMP_{n}_{key}:"
+                pos = raw.find(marker)
+                if pos == -1:
+                    return ""
+                start = pos + len(marker)
+                # Find next marker
+                import re
+                next_m = re.search(r"COMP_\d+_[A-Z]+:", raw[start:])
+                end = start + next_m.start() if next_m else len(raw)
+                return raw[start:end].strip()
+
+            addr = _get("ADDRESS")
+            if not addr:
+                continue
+            comps_list.append({
+                "address":  addr,
+                "specs":    _get("SPECS"),
+                "price":    _get("PRICE"),
+                "date":     _get("DATE"),
+                "distance": _get("DISTANCE"),
+                "notes":    _get("NOTES"),
+            })
+
+        return jsonify({"ok": True, "comps": comps_list, "subject": address})
+
+    except anthropic.AuthenticationError:
+        return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/contact", methods=["POST"])
 def contact():
     name    = request.form.get("contact_name", "").strip()

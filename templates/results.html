@@ -137,6 +137,7 @@
           <button type="submit" class="btn btn--gold btn--lg">⬇ Download PDF — {{ price }}</button>
         </form>
       {% endif %}
+      <a href="/comps?address={{ prop.address | urlencode }}" class="btn btn--outline btn--lg">🏘 Find Nearby Comps</a>
       <a href="/#contact" class="btn btn--navy btn--lg">Talk to an Agent</a>
     </div>
     {% if not paid %}

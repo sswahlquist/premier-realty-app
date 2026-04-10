@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+{% block title %}Comparable Sales Finder — SW AI Consulting{% endblock %}
+
+{% block content %}
+<style>
+.comps-hero {
+  background: linear-gradient(135deg, #1a2332 0%, #2c3e55 100%);
+  color: #fff;
+  padding: 56px 24px 40px;
+  text-align: center;
+}
+.comps-hero h1 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 2rem;
+  margin-bottom: 10px;
+  color: #fff;
+}
+.comps-hero p {
+  color: rgba(255,255,255,0.65);
+  font-size: 1rem;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.comps-hero .gold-line {
+  width: 48px; height: 3px;
+  background: #c8a97e;
+  margin: 16px auto 20px;
+  border-radius: 2px;
+}
+
+.comps-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+}
+
+/* Search form */
+.comps-form-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 28px rgba(26,35,50,0.10);
+  padding: 36px 36px 28px;
+  margin-bottom: 36px;
+  border-top: 4px solid #c8a97e;
+}
+.comps-form-card h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.15rem;
+  color: #1a2332;
+  margin-bottom: 20px;
+}
+.form-grid-comps {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.form-grid-comps .span-full {
+  grid-column: 1 / -1;
+}
+.form-group label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a2332;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #dde1e9;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: #1a2332;
+  background: #f8f9fa;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: #c8a97e;
+  background: #fff;
+}
+.comps-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+.comps-disclaimer {
+  font-size: 0.75rem;
+  color: #adb5bd;
+  line-height: 1.5;
+}
+
+/* Loading state */
+.comps-loading {
+  display: none;
+  text-align: center;
+  padding: 48px 24px;
+  color: #6c757d;
+}
+.comps-loading .spinner {
+  width: 44px; height: 44px;
+  border: 4px solid #eef0f4;
+  border-top-color: #c8a97e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Results section */
+.comps-results {
+  display: none;
+}
+.comps-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.comps-results-header h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.25rem;
+  color: #1a2332;
+}
+.comps-subject-tag {
+  background: #f0f4ff;
+  border: 1px solid #c8d4f5;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  color: #1a2332;
+  font-weight: 600;
+}
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff8ec;
+  border: 1px solid #f0d9aa;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: #8a6630;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+/* Comp cards */
+.comp-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 640px) {
+  .comp-cards-grid { grid-template-columns: 1fr; }
+  .form-grid-comps { grid-template-columns: 1fr; }
+}
+.comp-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 3px 18px rgba(26,35,50,0.09);
+  padding: 22px 22px 18px;
+  border-left: 4px solid #c8a97e;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.comp-card:hover {
+  box-shadow: 0 6px 28px rgba(26,35,50,0.15);
+  transform: translateY(-2px);
+}
+.comp-card-num {
+  display: inline-block;
+  background: #1a2332;
+  color: #c8a97e;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 2px 9px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.comp-address {
+  font-weight: 700;
+  font-size: 0.97rem;
+  color: #1a2332;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+.comp-specs {
+  font-size: 0.82rem;
+  color: #6c757d;
+  margin-bottom: 10px;
+}
+.comp-price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid #f0f2f5;
+  padding-top: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.comp-price {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #1a2332;
+  font-family: 'Merriweather', Georgia, serif;
+}
+.comp-meta {
+  font-size: 0.75rem;
+  color: #adb5bd;
+}
+.comp-notes {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 7px 10px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Summary stats bar */
+.comps-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 24px 0 28px;
+}
+.stat-box {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(26,35,50,0.07);
+  border-top: 3px solid #c8a97e;
+}
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a2332;
+  font-family: 'Merriweather', Georgia, serif;
+}
+.stat-label {
+  font-size: 0.72rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.comps-cta {
+  background: linear-gradient(135deg, #1a2332, #2c3e55);
+  color: #fff;
+  border-radius: 14px;
+  padding: 32px 28px;
+  text-align: center;
+  margin-top: 32px;
+}
+.comps-cta h3 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+}
+.comps-cta p {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+.error-box {
+  display: none;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 10px;
+  padding: 16px 20px;
+  color: #856404;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+</style>
+
+<!-- Hero -->
+<div class="comps-hero">
+  <h1>Comparable Sales Finder</h1>
+  <div class="gold-line"></div>
+  <p>Enter a subject property to find AI-researched recent sales in the same area — instantly.</p>
+</div>
+
+<div class="comps-page">
+
+  <!-- Search Form -->
+  <div class="comps-form-card">
+    <h2>Subject Property Details</h2>
+    <form id="compsForm">
+      <div class="form-grid-comps">
+        <div class="form-group span-full">
+          <label>Property Address *</label>
+          <input type="text" id="address" placeholder="142 Oak Street, Greenville, TX 75401"
+                 value="{{ prefill_address }}" required />
+        </div>
+        <div class="form-group">
+          <label>Bedrooms</label>
+          <input type="text" id="beds" placeholder="3" />
+        </div>
+        <div class="form-group">
+          <label>Bathrooms</label>
+          <input type="text" id="baths" placeholder="2" />
+        </div>
+        <div class="form-group">
+          <label>Sq Footage</label>
+          <input type="text" id="sqft" placeholder="1,800" />
+        </div>
+        <div class="form-group">
+          <label>Year Built</label>
+          <input type="text" id="year_built" placeholder="2001" />
+        </div>
+        <div class="form-group">
+          <label>Expected Price Range</label>
+          <input type="text" id="price_range" placeholder="$250,000–$300,000" />
+        </div>
+      </div>
+      <div class="comps-submit-row">
+        <button type="submit" class="btn btn--gold">🔍 Find Comparable Sales</button>
+        <p class="comps-disclaimer">AI-estimated comps based on market data. For informational use — always verify with MLS.</p>
+      </div>
+    </form>
+  </div>
+
+  <!-- Loading -->
+  <div class="comps-loading" id="compsLoading">
+    <div class="spinner"></div>
+    <p>Researching comparable sales in your area…</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Results -->
+  <div class="comps-results" id="compsResults">
+
+    <div class="comps-results-header">
+      <h2>Recent Comparable Sales</h2>
+      <span class="comps-subject-tag" id="subjectTag"></span>
+    </div>
+
+    <div class="ai-badge">
+      ⚠️ These are AI-estimated comparables based on publicly available market knowledge. Always verify exact sale prices and dates through MLS or county records before using in a formal CMA or appraisal.
+    </div>
+
+    <!-- Summary stats -->
+    <div class="comps-stats-bar">
+      <div class="stat-box">
+        <div class="stat-value" id="statAvg">—</div>
+        <div class="stat-label">Avg Sale Price</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statLow">—</div>
+        <div class="stat-label">Lowest Comp</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statHigh">—</div>
+        <div class="stat-label">Highest Comp</div>
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="comp-cards-grid" id="compCardsGrid"></div>
+
+    <!-- CTA -->
+    <div class="comps-cta">
+      <h3>Want a full AI Valuation Report?</h3>
+      <p>Use these comps to run a complete AI property valuation with methodology, market context, and a branded PDF report.</p>
+      <a href="/#valuation" class="btn btn--gold">Run Full Valuation →</a>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+document.getElementById("compsForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const address    = document.getElementById("address").value.trim();
+  const beds       = document.getElementById("beds").value.trim();
+  const baths      = document.getElementById("baths").value.trim();
+  const sqft       = document.getElementById("sqft").value.trim();
+  const year_built = document.getElementById("year_built").value.trim();
+  const price_range = document.getElementById("price_range").value.trim();
+
+  if (!address) return;
+
+  // Show loading, hide results/error
+  document.getElementById("compsLoading").style.display = "block";
+  document.getElementById("compsResults").style.display = "none";
+  document.getElementById("errorBox").style.display = "none";
+
+  try {
+    const res = await fetch("/api/comps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, beds, baths, sqft, year_built, price_range })
+    });
+    const data = await res.json();
+
+    document.getElementById("compsLoading").style.display = "none";
+
+    if (!data.ok || !data.comps || !data.comps.length) {
+      showError(data.error || "No comparable sales found. Try adding more property details.");
+      return;
+    }
+
+    renderComps(data.comps, data.subject);
+
+  } catch (err) {
+    document.getElementById("compsLoading").style.display = "none";
+    showError("Network error. Please try again.");
+  }
+});
+
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  box.textContent = msg;
+  box.style.display = "block";
+}
+
+function parsePriceDollars(str) {
+  if (!str) return null;
+  const match = str.replace(/,/g, "").match(/\d+/);
+  return match ? parseInt(match[0]) : null;
+}
+
+function formatDollar(n) {
+  if (!n) return "—";
+  return "$" + n.toLocaleString();
+}
+
+function renderComps(comps, subject) {
+  // Subject tag
+  document.getElementById("subjectTag").textContent = "📍 " + subject;
+
+  // Stats
+  const prices = comps.map(c => parsePriceDollars(c.price)).filter(p => p && p > 1000);
+  if (prices.length) {
+    const avg  = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    const low  = Math.min(...prices);
+    const high = Math.max(...prices);
+    document.getElementById("statAvg").textContent  = formatDollar(avg);
+    document.getElementById("statLow").textContent  = formatDollar(low);
+    document.getElementById("statHigh").textContent = formatDollar(high);
+  }
+
+  // Cards
+  const grid = document.getElementById("compCardsGrid");
+  grid.innerHTML = "";
+  comps.forEach((c, i) => {
+    grid.innerHTML += `
+      <div class="comp-card">
+        <div class="comp-card-num">COMP ${i + 1}</div>
+        <div class="comp-address">${escHtml(c.address)}</div>
+        <div class="comp-specs">${escHtml(c.specs)}</div>
+        <div class="comp-price-row">
+          <span class="comp-price">${escHtml(c.price)}</span>
+          <span class="comp-meta">${escHtml(c.date)} · ${escHtml(c.distance)}</span>
+        </div>
+        ${c.notes ? `<div class="comp-notes">${escHtml(c.notes)}</div>` : ""}
+      </div>`;
+  });
+
+  document.getElementById("compsResults").style.display = "block";
+  document.getElementById("compsResults").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function escHtml(str) {
+  if (!str) return "";
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Auto-submit if address was pre-filled from valuation results
+{% if prefill_address %}
+window.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("compsForm").dispatchEvent(new Event("submit"));
+});
+{% endif %}
+</script>
+{% endblock %}
