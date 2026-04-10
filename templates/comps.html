@@ -351,7 +351,7 @@
       <span class="comps-subject-tag" id="subjectTag"></span>
     </div>
 
-    <div class="ai-badge">
+    <div class="ai-badge" id="sourceBadge">
       ⚠️ These are AI-estimated comparables based on publicly available market knowledge. Always verify exact sale prices and dates through MLS or county records before using in a formal CMA or appraisal.
     </div>
 
@@ -418,7 +418,7 @@ document.getElementById("compsForm").addEventListener("submit", async function(e
       return;
     }
 
-    renderComps(data.comps, data.subject);
+    renderComps(data.comps, data.subject, data.source);
 
   } catch (err) {
     document.getElementById("compsLoading").style.display = "none";
@@ -443,7 +443,20 @@ function formatDollar(n) {
   return "$" + n.toLocaleString();
 }
 
-function renderComps(comps, subject) {
+function renderComps(comps, subject, source) {
+  // Update source badge
+  const badge = document.getElementById("sourceBadge");
+  if (source === "zillow") {
+    badge.style.background = "#eaf7ee";
+    badge.style.borderColor = "#9fd4ac";
+    badge.style.color = "#1a6b30";
+    badge.innerHTML = "✅ <strong>Live Zillow Data</strong> — These are real recently sold properties pulled from Zillow. Prices and dates are verified sale records. AI-generated comparison notes are for context only.";
+  } else {
+    badge.style.background = "#fff8ec";
+    badge.style.borderColor = "#f0d9aa";
+    badge.style.color = "#8a6630";
+    badge.innerHTML = "⚠️ <strong>AI-Estimated Comps</strong> — No live data found for this area. These are AI-estimated comparables based on market knowledge. Always verify through MLS or county records before using in a formal CMA.";
+  }
   // Subject tag
   document.getElementById("subjectTag").textContent = "📍 " + subject;
 

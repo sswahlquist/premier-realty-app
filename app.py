@@ -7,14 +7,19 @@ import os
 import uuid
 import json
 import io
+import re
+import math
 import pathlib
 from datetime import datetime
+
+import requests
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash, jsonify
 
 import anthropic
 import stripe
 
-stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
+stripe.api_key    = os.environ.get("STRIPE_SECRET_KEY", "")
+RAPIDAPI_KEY      = os.environ.get("RAPIDAPI_KEY", "")
 REPORT_PRICE_CENTS = int(os.environ.get("REPORT_PRICE_CENTS", "999"))   # $9.99 default
 REPORTS_DIR = pathlib.Path("reports")
 
@@ -54,6 +59,199 @@ Your job:
 5. Never give specific legal or financial advice. If asked, say something like "That's a great question for a licensed attorney / financial advisor — I'd recommend consulting one. What I can tell you generally is..."
 6. Keep responses concise — 2 to 4 short paragraphs max. Use a friendly, conversational tone.
 7. Remember everything from earlier in the conversation and refer back to it naturally."""
+
+
+# ── Zillow / RapidAPI helpers ────────────────────────────────────────────────────
+
+def _haversine_miles(lat1, lon1, lat2, lon2):
+    R = 3958.8
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    a = (math.sin((phi2 - phi1) / 2) ** 2
+         + math.cos(phi1) * math.cos(phi2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2)
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _geocode(address: str):
+    """Return (lat, lon) for an address via free Nominatim API, or (None, None)."""
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": address, "format": "json", "limit": 1},
+            headers={"User-Agent": "SW-AI-Consulting/1.0 (property-valuation-app)"},
+            timeout=6,
+        )
+        data = r.json()
+        if data:
+            return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception:
+        pass
+    return None, None
+
+
+def _extract_location(address: str) -> str:
+    """Pull a zip code or 'City, ST' from a full address for the Zillow search."""
+    m = re.search(r"\b(\d{5})\b", address)
+    if m:
+        return m.group(1)
+    m = re.search(r"([A-Za-z\s]+),\s*([A-Z]{2})", address)
+    if m:
+        return f"{m.group(1).strip()}, {m.group(2)}"
+    return address
+
+
+def _fetch_zillow_sold(location: str, beds: str, sqft: str) -> list[dict]:
+    """
+    Call Zillow56 on RapidAPI for recently sold homes.
+    Returns a list of raw result dicts (may be empty).
+    Raises on HTTP error.
+    """
+    if not RAPIDAPI_KEY:
+        return []
+
+    params: dict = {
+        "location": location,
+        "status": "sold",
+        "sortSelection": "days",
+        "listing_type": "by_agent,by_owner",
+    }
+    # Soft bed filter — ±1 bed
+    if beds:
+        try:
+            b = int(beds)
+            params["bedsMin"] = max(1, b - 1)
+            params["bedsMax"] = b + 1
+        except ValueError:
+            pass
+
+    r = requests.get(
+        "https://zillow56.p.rapidapi.com/search",
+        headers={
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": "zillow56.p.rapidapi.com",
+        },
+        params=params,
+        timeout=12,
+    )
+    r.raise_for_status()
+    return r.json().get("results", [])
+
+
+def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
+                         subject_sqft: str) -> list[dict]:
+    """Convert Zillow API rows into the comp card format. Returns up to 6."""
+    comps = []
+    sqft_num = None
+    if subject_sqft:
+        try:
+            sqft_num = int(subject_sqft.replace(",", ""))
+        except ValueError:
+            pass
+
+    for r in raw_results:
+        street  = r.get("streetAddress") or r.get("address", "")
+        city    = r.get("city", "")
+        state   = r.get("state", "")
+        zipcode = r.get("zipcode", "")
+        if not street:
+            continue
+
+        full_addr = f"{street}, {city}, {state} {zipcode}".strip(", ")
+        price     = r.get("soldPrice") or r.get("price") or 0
+        beds      = r.get("bedrooms", "")
+        baths     = r.get("bathrooms", "")
+        living    = r.get("livingArea", "")
+        year      = r.get("yearBuilt", "")
+        lat       = r.get("latitude")
+        lon       = r.get("longitude")
+
+        if not price:
+            continue
+
+        # Build specs string
+        specs_parts = []
+        if beds:   specs_parts.append(f"{beds} bed")
+        if baths:  specs_parts.append(f"{baths} bath")
+        if living: specs_parts.append(f"{int(living):,} sq ft")
+        if year:   specs_parts.append(f"Built {year}")
+        specs = " / ".join(specs_parts) if specs_parts else "Details N/A"
+
+        # Distance
+        distance = "—"
+        if lat and lon and subject_lat and subject_lon:
+            try:
+                miles = _haversine_miles(subject_lat, subject_lon, float(lat), float(lon))
+                distance = f"{miles:.1f} miles away"
+            except Exception:
+                pass
+
+        # Date sold (field varies by API version)
+        date_sold = (r.get("dateSoldString") or r.get("dateSold") or
+                     r.get("sold_date") or "Recent")
+        if date_sold and len(date_sold) >= 7:
+            try:
+                from datetime import datetime as dt
+                d = dt.strptime(date_sold[:10], "%Y-%m-%d")
+                date_sold = d.strftime("%B %Y")
+            except Exception:
+                pass
+
+        comps.append({
+            "address":  full_addr,
+            "specs":    specs,
+            "price":    f"${int(price):,}",
+            "date":     date_sold,
+            "distance": distance,
+            "living_area": int(living) if living else None,
+        })
+
+        if len(comps) >= 6:
+            break
+
+    return comps
+
+
+def _add_claude_notes(comps: list[dict], subject_address: str,
+                      subject_beds: str, subject_baths: str,
+                      subject_sqft: str, subject_year: str) -> list[dict]:
+    """Ask Claude to add a one-sentence comparison note to each real comp."""
+    if not comps:
+        return comps
+
+    lines = []
+    for i, c in enumerate(comps, 1):
+        lines.append(
+            f"Comp {i}: {c['address']} | {c['specs']} | Sold {c['price']} in {c['date']}"
+        )
+
+    prompt = f"""You are a real estate appraiser. The subject property is:
+{subject_address} — {subject_beds} bed / {subject_baths} bath / {subject_sqft} sq ft / Built {subject_year}
+
+Below are REAL recently sold comparable properties. For each comp, write ONE concise sentence (max 20 words) explaining the most important similarity or difference vs the subject that affects the price comparison. Be specific about condition, size, age, or features — not generic.
+
+{chr(10).join(lines)}
+
+Reply ONLY with lines in this exact format:
+COMP_1_NOTE: [sentence]
+COMP_2_NOTE: [sentence]
+... (through COMP_{len(comps)}_NOTE)"""
+
+    try:
+        client = anthropic.Anthropic()
+        resp = client.messages.create(
+            model=AI_MODEL, max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text.strip()
+        for i, comp in enumerate(comps, 1):
+            marker = f"COMP_{i}_NOTE:"
+            pos = raw.find(marker)
+            if pos != -1:
+                note = raw[pos + len(marker):].split("\n")[0].strip()
+                comp["notes"] = note
+    except Exception:
+        pass  # notes are optional — real data still shown
+
+    return comps
 
 
 # ── Claude integration ──────────────────────────────────────────────────────────
@@ -1312,97 +1510,115 @@ def comps():
 
 @app.route("/api/comps", methods=["POST"])
 def api_comps():
-    data    = request.get_json()
-    address = (data.get("address") or "").strip()
-    beds    = (data.get("beds") or "").strip()
-    baths   = (data.get("baths") or "").strip()
-    sqft    = (data.get("sqft") or "").strip()
-    year    = (data.get("year_built") or "").strip()
+    data        = request.get_json()
+    address     = (data.get("address") or "").strip()
+    beds        = (data.get("beds") or "").strip()
+    baths       = (data.get("baths") or "").strip()
+    sqft        = (data.get("sqft") or "").strip()
+    year        = (data.get("year_built") or "").strip()
     price_range = (data.get("price_range") or "").strip()
 
     if not address:
         return jsonify({"error": "Property address is required."}), 400
 
-    prop_details = f"Address: {address}"
-    if beds:   prop_details += f"\nBedrooms: {beds}"
-    if baths:  prop_details += f"\nBathrooms: {baths}"
-    if sqft:   prop_details += f"\nSquare Footage: {sqft} sq ft"
-    if year:   prop_details += f"\nYear Built: {year}"
-    if price_range: prop_details += f"\nExpected Price Range: {price_range}"
+    # ── Try Zillow RapidAPI first ─────────────────────────────────────────
+    comps_list = []
+    data_source = "ai"
 
-    prompt = f"""You are a licensed real estate appraiser with deep knowledge of local markets. Generate 6 realistic recent comparable sales near the subject property below. Base your estimates on the actual market for that city/state.
+    if RAPIDAPI_KEY:
+        try:
+            location = _extract_location(address)
+            raw_results = _fetch_zillow_sold(location, beds, sqft)
+
+            if raw_results:
+                # Geocode subject to calculate distances
+                subj_lat, subj_lon = _geocode(address)
+                comps_list = _format_zillow_comps(raw_results, subj_lat, subj_lon, sqft)
+
+            if comps_list:
+                # Add AI-generated comparison notes on top of real data
+                comps_list = _add_claude_notes(
+                    comps_list, address, beds, baths, sqft, year
+                )
+                data_source = "zillow"
+
+        except requests.exceptions.HTTPError as e:
+            # Log but fall through to Claude fallback
+            app.logger.warning(f"Zillow API error: {e}")
+        except Exception as e:
+            app.logger.warning(f"Zillow fetch failed: {e}")
+
+    # ── Fall back to Claude-generated comps ───────────────────────────────
+    if not comps_list:
+        prop_details = f"Address: {address}"
+        if beds:        prop_details += f"\nBedrooms: {beds}"
+        if baths:       prop_details += f"\nBathrooms: {baths}"
+        if sqft:        prop_details += f"\nSquare Footage: {sqft} sq ft"
+        if year:        prop_details += f"\nYear Built: {year}"
+        if price_range: prop_details += f"\nExpected Price Range: {price_range}"
+
+        prompt = f"""You are a licensed real estate appraiser with deep knowledge of local markets. Generate 6 realistic recent comparable sales near the subject property. Base your estimates on the actual market for that city/state.
 
 SUBJECT PROPERTY:
 {prop_details}
 
-For each comp, use EXACTLY these markers (parsed programmatically — do not deviate):
+For each comp use EXACTLY these markers:
 
 COMP_1_ADDRESS:
-[Full street address, city, state — in same general area as subject, not the same street]
+[Full street address, city, state]
 COMP_1_SPECS:
 [X bed / X bath / X,XXX sq ft / Built XXXX]
 COMP_1_PRICE:
 [$XXX,XXX]
 COMP_1_DATE:
-[Month Year — within last 12 months, vary dates across all 6 comps]
+[Month Year — within last 12 months]
 COMP_1_DISTANCE:
 [X.X miles away]
 COMP_1_NOTES:
-[One sentence: key similarities or differences vs subject property that affect the price comparison. Be specific — mention condition, updates, lot size difference, etc.]
+[One sentence: key similarity or difference vs subject that affects price. Be specific.]
 
-COMP_2_ADDRESS:
-...
 (continue through COMP_6)
 
-Rules:
-- All 6 comps must be in the same city/metro area as the subject
-- Vary prices realistically — don't make them all identical
-- Vary distances from 0.2 to 1.5 miles
-- Make specs realistic for the neighborhood (don't put a 5,000 sq ft mansion next to a 900 sq ft starter home area)
-- NOTES must be specific and useful for comparison, not generic
-- No markdown, no asterisks, no extra formatting"""
+Rules: All 6 in same city/metro. Vary prices realistically. Vary distances 0.2–1.5 miles. No markdown."""
 
-    try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=1800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
+        try:
+            client   = anthropic.Anthropic()
+            response = client.messages.create(
+                model=AI_MODEL, max_tokens=1800,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = response.content[0].text.strip()
 
-        comps_list = []
-        for n in range(1, 7):
-            def _get(key):
-                marker = f"COMP_{n}_{key}:"
-                pos = raw.find(marker)
-                if pos == -1:
-                    return ""
-                start = pos + len(marker)
-                # Find next marker
-                import re
-                next_m = re.search(r"COMP_\d+_[A-Z]+:", raw[start:])
-                end = start + next_m.start() if next_m else len(raw)
-                return raw[start:end].strip()
+            for n in range(1, 7):
+                def _get(key, _raw=raw, _n=n):
+                    marker = f"COMP_{_n}_{key}:"
+                    pos = _raw.find(marker)
+                    if pos == -1:
+                        return ""
+                    start = pos + len(marker)
+                    next_m = re.search(r"COMP_\d+_[A-Z]+:", _raw[start:])
+                    end = start + next_m.start() if next_m else len(_raw)
+                    return _raw[start:end].strip()
 
-            addr = _get("ADDRESS")
-            if not addr:
-                continue
-            comps_list.append({
-                "address":  addr,
-                "specs":    _get("SPECS"),
-                "price":    _get("PRICE"),
-                "date":     _get("DATE"),
-                "distance": _get("DISTANCE"),
-                "notes":    _get("NOTES"),
-            })
+                addr = _get("ADDRESS")
+                if not addr:
+                    continue
+                comps_list.append({
+                    "address":  addr,
+                    "specs":    _get("SPECS"),
+                    "price":    _get("PRICE"),
+                    "date":     _get("DATE"),
+                    "distance": _get("DISTANCE"),
+                    "notes":    _get("NOTES"),
+                })
 
-        return jsonify({"ok": True, "comps": comps_list, "subject": address})
+        except anthropic.AuthenticationError:
+            return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-    except anthropic.AuthenticationError:
-        return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True, "comps": comps_list, "subject": address,
+                    "source": data_source})
 
 
 @app.route("/contact", methods=["POST"])
