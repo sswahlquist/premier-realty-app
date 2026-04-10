@@ -101,39 +101,42 @@ def _extract_location(address: str) -> str:
 
 def _fetch_zillow_sold(location: str, beds: str, sqft: str) -> list[dict]:
     """
-    Call Zillow56 on RapidAPI for recently sold homes.
+    Call Zillow Scraper API by PullAPI for recently sold homes.
     Returns a list of raw result dicts (may be empty).
     Raises on HTTP error.
     """
     if not RAPIDAPI_KEY:
         return []
 
+    RAPIDAPI_HOST = "zillow-scraper-api.p.rapidapi.com"
+
     params: dict = {
         "location": location,
-        "status": "sold",
-        "sortSelection": "days",
-        "listing_type": "by_agent,by_owner",
+        "status":   "sold",
+        "sortBy":   "newest",
     }
     # Soft bed filter — ±1 bed
     if beds:
         try:
             b = int(beds)
-            params["bedsMin"] = max(1, b - 1)
-            params["bedsMax"] = b + 1
+            params["beds_min"] = max(1, b - 1)
+            params["beds_max"] = b + 1
         except ValueError:
             pass
 
     r = requests.get(
-        "https://zillow56.p.rapidapi.com/search",
+        f"https://{RAPIDAPI_HOST}/search",
         headers={
-            "X-RapidAPI-Key": RAPIDAPI_KEY,
-            "X-RapidAPI-Host": "zillow56.p.rapidapi.com",
+            "X-RapidAPI-Key":  RAPIDAPI_KEY,
+            "X-RapidAPI-Host": RAPIDAPI_HOST,
         },
         params=params,
         timeout=12,
     )
     r.raise_for_status()
-    return r.json().get("results", [])
+    body = r.json()
+    # PullAPI returns results under "results" or "props" depending on version
+    return body.get("results") or body.get("props") or body.get("listings") or []
 
 
 def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
