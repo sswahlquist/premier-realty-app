@@ -189,17 +189,18 @@ select option[value="Closed"] { color: #6b46c1; }
 .result-sublabel { color: rgba(255,255,255,0.5); font-size: 0.75rem; margin-top: 2px; }
 
 .copy-btn {
-  padding: 8px 18px;
+  padding: 10px 20px;
   background: #c8a97e;
   color: #1a2332;
   border: none;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Inter', sans-serif;
   flex-shrink: 0;
+  min-height: 44px;
 }
 .copy-btn:hover { background: #b8956a; }
 .copy-btn.copied { background: #276749; color: #fff; }
@@ -266,6 +267,10 @@ select option[value="Closed"] { color: #6b46c1; }
   margin-top: 28px;
 }
 
+@media (max-width: 768px) {
+  .leads-wrap { padding: 28px 16px 48px; }
+  .result-card-body { padding: 20px; }
+}
 @media (max-width: 640px) {
   .leads-grid { grid-template-columns: 1fr; }
   .leads-grid .full { grid-column: 1; }

@@ -177,6 +177,16 @@
   .compare-grid   { grid-template-columns: 1fr; }
   .verdict-cards  { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 768px) {
+  .nbhd-page      { padding: 0 16px 56px; }
+  .nbhd-hero      { padding: 40px 0 28px; }
+  .search-card    { padding: 20px; }
+  .search-row     { flex-direction: column; }
+  .btn--search    { width: 100%; }
+  .compare-inputs { grid-template-columns: 1fr; }
+  .compare-vs     { margin: 4px auto; }
+  .mode-btn       { padding: 9px 16px; font-size: 0.82rem; }
+}
 @media (max-width: 640px) {
   .search-row       { flex-direction: column; }
   .compare-inputs   { grid-template-columns: 1fr; }

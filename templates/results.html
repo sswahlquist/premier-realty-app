@@ -106,22 +106,24 @@
       <span class="rc-icon">🏘</span>
       <h3>Comparable Sales Used</h3>
     </div>
-    <table class="comps-table">
-      <thead>
-        <tr><th>#</th><th>Address</th><th>Sale Price</th></tr>
-      </thead>
-      <tbody>
-        {% for c in comps %}
-          {% if c.address and c.price %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ c.address }}</td>
-            <td class="comp-price">{{ c.price }}</td>
-          </tr>
-          {% endif %}
-        {% endfor %}
-      </tbody>
-    </table>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="comps-table">
+        <thead>
+          <tr><th>#</th><th>Address</th><th>Sale Price</th></tr>
+        </thead>
+        <tbody>
+          {% for c in comps %}
+            {% if c.address and c.price %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ c.address }}</td>
+              <td class="comp-price">{{ c.price }}</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
   {% endif %}
 

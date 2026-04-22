@@ -172,6 +172,7 @@
   overflow: hidden;
   border: 1px solid #e9ecef;
   height: 580px;
+  height: min(580px, calc(100dvh - 200px));
 }
 .chat-window.active { display: flex; }
 
@@ -325,11 +326,21 @@
   line-height: 1.5;
 }
 
+@media (max-width: 768px) {
+  .chat-page { padding: 20px 12px 32px; }
+  .chat-wrap { max-width: 100%; }
+  .alex-header { padding: 20px 20px 18px; gap: 14px; }
+  .chips { gap: 8px; }
+  .chip { padding: 8px 14px; font-size: 0.82rem; }
+}
 @media (max-width: 480px) {
-  .chat-page { padding: 16px 12px 32px; }
-  .chat-window { height: 500px; }
-  .alex-header { padding: 20px; }
-  .start-body { padding: 24px 20px; }
+  .chat-page { padding: 12px 0 0; background: #fff; min-height: calc(100dvh - 90px); }
+  .chat-intro { padding: 0 16px; margin-bottom: 16px; }
+  .chat-window { border-radius: 0; border-left: none; border-right: none; height: min(500px, calc(100dvh - 180px)); }
+  .start-screen { border-radius: 0; border-left: none; border-right: none; }
+  .alex-header { padding: 16px; }
+  .start-body { padding: 20px 16px; }
+  .chat-messages { padding: 16px; }
 }
 </style>
 
