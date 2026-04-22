@@ -64,6 +64,21 @@
     </div>
   </footer>
 
+  <!-- ── Upgrade modal (daily-limit paywall) ─────────────────────── -->
+  <div class="upgrade-modal" id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+    <div class="upgrade-modal-backdrop" onclick="closeUpgradeModal()"></div>
+    <div class="upgrade-modal-card">
+      <button class="upgrade-modal-close" onclick="closeUpgradeModal()" aria-label="Close">✕</button>
+      <p class="upgrade-modal-eyebrow">Daily limit reached</p>
+      <h2 class="upgrade-modal-title" id="upgradeModalTitle">You've used your 3 free generations for today.</h2>
+      <p class="upgrade-modal-body">Want unlimited access and a tool customized to your voice, market, and MLS? Book a free 15-minute call.</p>
+      <a href="https://calendly.com/wahlquiststephen/30min" target="_blank" rel="noopener" class="btn btn--gold btn--lg upgrade-modal-cta">
+        Book a free 15-minute call →
+      </a>
+      <p class="upgrade-modal-note">Your counter resets at midnight UTC.</p>
+    </div>
+  </div>
+
   <!-- ── Floating Alex Chat Bubble ─────────────────────────────────── -->
   <style>
     /* Bubble button */
@@ -468,6 +483,38 @@
     setTimeout(() => {
       if (!popupOpen) document.getElementById('alexDot').classList.add('visible');
     }, 4000);
+
+    /* ── Upgrade modal: shown when a session hits the daily limit ──── */
+    window.openUpgradeModal = function() {
+      const m = document.getElementById('upgradeModal');
+      if (m) { m.classList.add('visible'); document.body.style.overflow = 'hidden'; }
+    };
+    window.closeUpgradeModal = function() {
+      const m = document.getElementById('upgradeModal');
+      if (m) { m.classList.remove('visible'); document.body.style.overflow = ''; }
+    };
+
+    // Intercept every fetch; if a JSON response signals limit_reached, pop modal.
+    (function() {
+      const origFetch = window.fetch;
+      window.fetch = async function(...args) {
+        const response = await origFetch.apply(this, args);
+        try {
+          const ct = (response.headers.get('content-type') || '').toLowerCase();
+          if (ct.includes('application/json')) {
+            const clone = response.clone();
+            const data  = await clone.json();
+            if (data && data.limit_reached) { window.openUpgradeModal(); }
+          }
+        } catch (e) { /* non-JSON or parse error — ignore */ }
+        return response;
+      };
+    })();
+
+    // If redirected back after a form-based limit hit, open modal on load.
+    if (new URLSearchParams(window.location.search).get('limit') === '1') {
+      window.addEventListener('DOMContentLoaded', () => window.openUpgradeModal());
+    }
   </script>
 
 </body>
