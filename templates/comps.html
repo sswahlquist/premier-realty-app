@@ -158,9 +158,16 @@
   grid-template-columns: 1fr 1fr;
   gap: 18px;
 }
+@media (max-width: 768px) {
+  .comps-hero { padding: 40px 16px 28px; }
+  .comps-hero h1 { font-size: clamp(1.4rem, 5vw, 2rem); }
+  .form-grid-comps { grid-template-columns: 1fr 1fr; }
+  .comp-cards-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
   .comp-cards-grid { grid-template-columns: 1fr; }
   .form-grid-comps { grid-template-columns: 1fr; }
+  .form-grid-comps .span-full { grid-column: 1; }
 }
 .comp-card {
   background: #fff;

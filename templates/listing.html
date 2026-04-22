@@ -20,6 +20,7 @@
 
 /* ── Layout ────────────────────────────────────────────────── */
 .listing-wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 72px; }
+@media (max-width: 768px) { .listing-wrap { padding: 28px 16px 48px; } .lfc-body { padding: 20px; } }
 
 /* ── Form card ─────────────────────────────────────────────── */
 .listing-form-card {
@@ -45,6 +46,7 @@
 /* ── Grid ──────────────────────────────────────────────────── */
 .lg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
 .lg-grid .full { grid-column: 1 / -1; }
+@media (max-width: 640px) { .lg-grid { grid-template-columns: 1fr; } .lg-grid .full { grid-column: 1; } }
 .lg-group { display: flex; flex-direction: column; gap: 6px; }
 .lg-group label { font-size: 0.82rem; font-weight: 600; color: #1a2332; }
 .lg-group input, .lg-group select, .lg-group textarea {
@@ -66,11 +68,13 @@
 
 /* ── Features grid ─────────────────────────────────────────── */
 .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+@media (max-width: 480px) { .features-grid { grid-template-columns: 1fr; } }
 .feat-input { display: flex; align-items: center; gap: 8px; }
 .feat-num { font-size: 0.75rem; font-weight: 700; color: #c8a97e; min-width: 20px; }
 
 /* ── Tone selector ─────────────────────────────────────────── */
 .tone-options { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 480px) { .tone-options { flex-direction: column; } .tone-label { text-align: center; } }
 .tone-option { display: none; }
 .tone-label {
   padding: 10px 20px;

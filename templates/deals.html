@@ -450,12 +450,17 @@
 }
 
 @media (max-width: 768px) {
+  .deals-wrap { padding: 28px 16px 48px; }
   .deals-form-grid { grid-template-columns: 1fr; }
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .verdict-cols { grid-template-columns: 1fr; }
+  .verdict-banner { padding: 24px 20px; }
+  .breakdown-card { overflow-x: auto; }
 }
 @media (max-width: 480px) {
   .metrics-grid { grid-template-columns: 1fr 1fr; }
+  .deals-actions-row { flex-direction: column; align-items: stretch; }
+  .deals-actions-row .btn { text-align: center; }
 }
 </style>
 

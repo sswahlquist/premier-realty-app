@@ -23,7 +23,7 @@
         <a href="/chat" class="nav-chat-cta">💬 Chat with Alex</a>
       </div>
     </div>
-    <!-- Bottom row: centered tool links -->
+    <!-- Bottom row: centered tool links + hamburger on mobile -->
     <div class="nav-bottom">
       <div class="nav-bottom-inner">
         <a href="/#valuation">Valuation</a>
@@ -41,6 +41,23 @@
         <a href="/neighborhood">Neighborhoods</a>
         <span class="nav-divider">·</span>
         <a href="/#contact">Contact</a>
+        <!-- Hamburger: visible only on mobile -->
+        <button class="nav-hamburger" id="navHamburger"
+                onclick="toggleMobileNav()" aria-label="Toggle menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <!-- Mobile dropdown menu -->
+      <div class="nav-mobile-menu" id="navMobileMenu">
+        <a href="/#valuation"  onclick="closeMobileNav()">Valuation</a>
+        <a href="/comps"       onclick="closeMobileNav()">Comps Finder</a>
+        <a href="/listing"     onclick="closeMobileNav()">Listing Generator</a>
+        <a href="/calculator"  onclick="closeMobileNav()">Calculator</a>
+        <a href="/leads"       onclick="closeMobileNav()">Lead Drafter</a>
+        <a href="/deals"       onclick="closeMobileNav()">Deal Analyzer</a>
+        <a href="/neighborhood" onclick="closeMobileNav()">Neighborhoods</a>
+        <a href="/#contact"    onclick="closeMobileNav()">Contact</a>
+        <a href="/chat"        onclick="closeMobileNav()" class="nm-cta">💬 Chat with Alex</a>
       </div>
     </div>
   </nav>
@@ -515,6 +532,25 @@
     if (new URLSearchParams(window.location.search).get('limit') === '1') {
       window.addEventListener('DOMContentLoaded', () => window.openUpgradeModal());
     }
+
+    /* ── Mobile nav ─────────────────────────────────────────────── */
+    function toggleMobileNav() {
+      const menu = document.getElementById('navMobileMenu');
+      const btn  = document.getElementById('navHamburger');
+      const open = menu.classList.toggle('open');
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open);
+    }
+    function closeMobileNav() {
+      document.getElementById('navMobileMenu').classList.remove('open');
+      const btn = document.getElementById('navHamburger');
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', false);
+    }
+    // Close mobile nav when tapping outside it
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.nav-bottom')) closeMobileNav();
+    });
   </script>
 
 </body>
