@@ -201,11 +201,14 @@
 
 .tour-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin: 0 0 22px;
 }
-@media (max-width: 600px) {
+@media (max-width: 800px) {
+  .tour-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 420px) {
   .tour-stats { grid-template-columns: 1fr; }
 }
 .stat-tile {
@@ -408,6 +411,10 @@
         <div class="stat-tile-label">Total Miles</div>
       </div>
       <div class="stat-tile">
+        <div class="stat-tile-value" id="statDrive">—</div>
+        <div class="stat-tile-label">Drive Time</div>
+      </div>
+      <div class="stat-tile">
         <div class="stat-tile-value" id="statTour">—</div>
         <div class="stat-tile-label">Total Tour Time</div>
       </div>
@@ -515,6 +522,7 @@ function fmtMin(m) {
 function renderRoute(data) {
   document.getElementById("statStops").textContent = data.stops.length;
   document.getElementById("statMiles").textContent = data.total_miles.toFixed(1);
+  document.getElementById("statDrive").textContent = fmtMin(data.total_drive_min);
   document.getElementById("statTour").textContent  = fmtMin(data.total_tour_min);
 
   document.getElementById("googleBtn").href = data.google_maps_url;
