@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+{% block title %}Showing Tour Planner — SW AI Consulting{% endblock %}
+
+{% block content %}
+<style>
+.tour-hero {
+  background: linear-gradient(135deg, #1a2332 0%, #2c3e55 100%);
+  color: #fff;
+  padding: 56px 24px 40px;
+  text-align: center;
+}
+.tour-hero h1 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 2rem;
+  margin-bottom: 10px;
+  color: #fff;
+}
+.tour-hero p {
+  color: rgba(255,255,255,0.65);
+  font-size: 1rem;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.tour-hero .gold-line {
+  width: 48px; height: 3px;
+  background: #c8a97e;
+  margin: 16px auto 20px;
+  border-radius: 2px;
+}
+
+.tour-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+}
+
+.tour-form-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 28px rgba(26,35,50,0.10);
+  padding: 32px 32px 26px;
+  margin-bottom: 32px;
+  border-top: 4px solid #c8a97e;
+}
+.tour-form-card h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.15rem;
+  color: #1a2332;
+  margin-bottom: 6px;
+}
+.tour-form-card .sub {
+  color: #6c757d;
+  font-size: 0.85rem;
+  margin-bottom: 22px;
+}
+
+.tour-input-group {
+  margin-bottom: 16px;
+}
+.tour-input-group label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a2332;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.tour-input-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #dde1e9;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: #1a2332;
+  background: #f8f9fa;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.tour-input-group input:focus {
+  outline: none;
+  border-color: #c8a97e;
+  background: #fff;
+}
+
+.stop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.stop-num {
+  flex: 0 0 30px;
+  height: 30px; width: 30px;
+  background: #1a2332;
+  color: #c8a97e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.stop-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #dde1e9;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  background: #f8f9fa;
+  box-sizing: border-box;
+}
+.stop-row input:focus {
+  outline: none;
+  border-color: #c8a97e;
+  background: #fff;
+}
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: #c25450;
+  cursor: pointer;
+  font-size: 1.4rem;
+  padding: 0 8px;
+  line-height: 1;
+}
+.btn-remove:hover { color: #a13e3a; }
+
+.btn-add-stop {
+  background: #f0f4ff;
+  color: #1a2332;
+  border: 1.5px dashed #1a2332;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  margin-bottom: 18px;
+  transition: all 0.15s;
+}
+.btn-add-stop:hover {
+  background: #1a2332;
+  color: #c8a97e;
+}
+
+.tour-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 18px 0 6px;
+  padding-top: 18px;
+  border-top: 1px solid #f0f2f5;
+}
+.tour-options label {
+  font-size: 0.82rem;
+  color: #1a2332;
+  font-weight: 600;
+}
+.tour-options input[type="number"] {
+  width: 78px;
+  padding: 6px 10px;
+  border: 1.5px solid #dde1e9;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.tour-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.tour-disclaimer {
+  font-size: 0.74rem;
+  color: #adb5bd;
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Loading */
+.tour-loading {
+  display: none;
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+.tour-loading .spinner {
+  width: 44px; height: 44px;
+  border: 4px solid #eef0f4;
+  border-top-color: #c8a97e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Results */
+.tour-results { display: none; }
+
+.tour-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 0 0 22px;
+}
+@media (max-width: 600px) {
+  .tour-stats { grid-template-columns: 1fr; }
+}
+.stat-tile {
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px 14px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(26,35,50,0.07);
+  border-top: 3px solid #c8a97e;
+}
+.stat-tile-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a2332;
+  font-family: 'Merriweather', Georgia, serif;
+}
+.stat-tile-label {
+  font-size: 0.72rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.maps-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.btn-map {
+  flex: 1;
+  min-width: 200px;
+  padding: 16px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border: none;
+  cursor: pointer;
+}
+.btn-map:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26,35,50,0.18);
+}
+.btn-google {
+  background: #4285f4;
+  color: #fff;
+}
+.btn-apple {
+  background: #1a2332;
+  color: #fff;
+}
+
+/* Stop cards */
+.tour-route-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 3px 18px rgba(26,35,50,0.08);
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.tour-route-card h3 {
+  font-family: 'Merriweather', Georgia, serif;
+  color: #1a2332;
+  font-size: 1.05rem;
+  margin-bottom: 14px;
+}
+
+.route-stop {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f2f5;
+}
+.route-stop:last-child { border-bottom: none; }
+.route-stop-bullet {
+  flex: 0 0 36px;
+  height: 36px; width: 36px;
+  background: linear-gradient(135deg, #c8a97e, #b08e62);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-family: 'Merriweather', Georgia, serif;
+}
+.route-stop-bullet.start {
+  background: linear-gradient(135deg, #1a2332, #2c3e55);
+  color: #c8a97e;
+}
+.route-stop-info { flex: 1; }
+.route-stop-addr {
+  font-weight: 600;
+  color: #1a2332;
+  margin-bottom: 3px;
+  font-size: 0.95rem;
+}
+.route-stop-meta {
+  font-size: 0.78rem;
+  color: #adb5bd;
+}
+
+.error-box {
+  display: none;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 10px;
+  padding: 14px 18px;
+  color: #856404;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+</style>
+
+<!-- Hero -->
+<div class="tour-hero">
+  <h1>Showing Tour Planner</h1>
+  <div class="gold-line"></div>
+  <p>Add the homes you're showing today — we'll optimize the route and open it in Google Maps in one tap.</p>
+</div>
+
+<div class="tour-page">
+
+  <!-- Form -->
+  <div class="tour-form-card">
+    <h2>Plan Your Showing Route</h2>
+    <p class="sub">Add 2 or more property addresses. Optionally enter a starting point (your office or first appointment).</p>
+
+    <form id="tourForm" onsubmit="return false;">
+      <div class="tour-input-group">
+        <label>📍 Starting Address (optional)</label>
+        <input type="text" id="startAddr" placeholder="123 Main St, Greenville, TX 75401" />
+      </div>
+
+      <label style="font-size:0.78rem;font-weight:600;color:#1a2332;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;display:block;">🏡 Property Stops</label>
+
+      <div id="stopsList">
+        <div class="stop-row">
+          <div class="stop-num">1</div>
+          <input type="text" class="stop-input" placeholder="Property address #1" />
+          <button type="button" class="btn-remove" onclick="removeStop(this)">×</button>
+        </div>
+        <div class="stop-row">
+          <div class="stop-num">2</div>
+          <input type="text" class="stop-input" placeholder="Property address #2" />
+          <button type="button" class="btn-remove" onclick="removeStop(this)">×</button>
+        </div>
+        <div class="stop-row">
+          <div class="stop-num">3</div>
+          <input type="text" class="stop-input" placeholder="Property address #3" />
+          <button type="button" class="btn-remove" onclick="removeStop(this)">×</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-add-stop" onclick="addStop()">+ Add Another Property</button>
+
+      <div class="tour-options">
+        <label>⏱ Time per showing:</label>
+        <input type="number" id="showingMin" value="30" min="5" max="120" step="5" />
+        <span style="font-size:0.85rem;color:#6c757d;">minutes</span>
+      </div>
+
+      <div class="tour-submit-row">
+        <button type="button" class="btn btn--gold" onclick="optimizeRoute()">🗺 Optimize Route</button>
+        <p class="tour-disclaimer">Drive times are estimates assuming 35 mph average suburban speed. Actual times vary with traffic.</p>
+      </div>
+    </form>
+  </div>
+
+  <!-- Loading -->
+  <div class="tour-loading" id="tourLoading">
+    <div class="spinner"></div>
+    <p>Geocoding addresses and finding the fastest route…</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Results -->
+  <div class="tour-results" id="tourResults">
+
+    <!-- Stats -->
+    <div class="tour-stats">
+      <div class="stat-tile">
+        <div class="stat-tile-value" id="statStops">—</div>
+        <div class="stat-tile-label">Properties</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-value" id="statMiles">—</div>
+        <div class="stat-tile-label">Total Miles</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-value" id="statTour">—</div>
+        <div class="stat-tile-label">Total Tour Time</div>
+      </div>
+    </div>
+
+    <!-- Maps buttons -->
+    <div class="maps-buttons">
+      <a id="googleBtn" href="#" target="_blank" class="btn-map btn-google">
+        🗺 Open Full Route in Google Maps
+      </a>
+      <a id="appleBtn" href="#" target="_blank" class="btn-map btn-apple">
+         Open in Apple Maps
+      </a>
+    </div>
+
+    <!-- Optimized order -->
+    <div class="tour-route-card">
+      <h3>Optimized Showing Order</h3>
+      <div id="routeStops"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let stopCount = 3;
+
+function addStop() {
+  stopCount++;
+  const list = document.getElementById("stopsList");
+  const row = document.createElement("div");
+  row.className = "stop-row";
+  row.innerHTML = `
+    <div class="stop-num">${list.children.length + 1}</div>
+    <input type="text" class="stop-input" placeholder="Property address #${list.children.length + 1}" />
+    <button type="button" class="btn-remove" onclick="removeStop(this)">×</button>
+  `;
+  list.appendChild(row);
+}
+
+function removeStop(btn) {
+  const list = document.getElementById("stopsList");
+  if (list.children.length <= 1) return;  // keep at least 1
+  btn.parentElement.remove();
+  // Renumber
+  Array.from(list.children).forEach((row, i) => {
+    row.querySelector(".stop-num").textContent = i + 1;
+    const inp = row.querySelector("input");
+    if (!inp.value) inp.placeholder = `Property address #${i + 1}`;
+  });
+}
+
+async function optimizeRoute() {
+  const start = document.getElementById("startAddr").value.trim();
+  const stops = Array.from(document.querySelectorAll(".stop-input"))
+                     .map(i => i.value.trim())
+                     .filter(v => v);
+  const showing_minutes = parseInt(document.getElementById("showingMin").value) || 30;
+
+  if (stops.length < 1) {
+    showError("Add at least one property address.");
+    return;
+  }
+
+  document.getElementById("tourLoading").style.display = "block";
+  document.getElementById("tourResults").style.display = "none";
+  document.getElementById("errorBox").style.display = "none";
+
+  try {
+    const res = await fetch("/api/showings/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start, addresses: stops, showing_minutes })
+    });
+    const data = await res.json();
+    document.getElementById("tourLoading").style.display = "none";
+
+    if (!data.ok) {
+      showError(data.error || "Couldn't plan that route. Try again.");
+      return;
+    }
+
+    renderRoute(data);
+  } catch (err) {
+    document.getElementById("tourLoading").style.display = "none";
+    showError("Network error. Please try again.");
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  box.textContent = msg;
+  box.style.display = "block";
+}
+
+function fmtMin(m) {
+  if (!m) return "0 min";
+  if (m < 60) return m + " min";
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h}h ${r}m` : `${h}h`;
+}
+
+function renderRoute(data) {
+  document.getElementById("statStops").textContent = data.stops.length;
+  document.getElementById("statMiles").textContent = data.total_miles.toFixed(1);
+  document.getElementById("statTour").textContent  = fmtMin(data.total_tour_min);
+
+  document.getElementById("googleBtn").href = data.google_maps_url;
+  document.getElementById("appleBtn").href  = data.apple_maps_url;
+
+  const list = document.getElementById("routeStops");
+  list.innerHTML = "";
+
+  if (data.start) {
+    list.innerHTML += `
+      <div class="route-stop">
+        <div class="route-stop-bullet start">★</div>
+        <div class="route-stop-info">
+          <div class="route-stop-addr">${escHtml(data.start.address)}</div>
+          <div class="route-stop-meta">Starting point</div>
+        </div>
+      </div>`;
+  }
+
+  data.stops.forEach((stop, i) => {
+    const leg = data.legs[i];
+    const legText = leg !== null && leg !== undefined ? `${leg} mi from previous stop` : "";
+    list.innerHTML += `
+      <div class="route-stop">
+        <div class="route-stop-bullet">${i + 1}</div>
+        <div class="route-stop-info">
+          <div class="route-stop-addr">${escHtml(stop.address)}</div>
+          <div class="route-stop-meta">${legText}${legText ? " · " : ""}${data.showing_minutes} min showing</div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById("tourResults").style.display = "block";
+  document.getElementById("tourResults").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function escHtml(str) {
+  if (!str) return "";
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+</script>
+{% endblock %}

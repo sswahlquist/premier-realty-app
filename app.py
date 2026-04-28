@@ -1724,6 +1724,134 @@ Rules: All 6 in same city/metro. Vary prices realistically. Vary distances 0.2�
                     "source": data_source})
 
 
+@app.route("/showings")
+def showings():
+    return render_template("showings.html")
+
+
+def _optimize_stops(stops: list[dict], start: dict | None) -> list[dict]:
+    """Nearest-neighbor route optimization. stops is a list of {address, lat, lon}."""
+    if not stops:
+        return []
+    valid   = [s for s in stops if s.get("lat") is not None]
+    invalid = [s for s in stops if s.get("lat") is None]
+
+    if not valid:
+        return stops
+
+    ordered = []
+    if start and start.get("lat") is not None:
+        cur_lat, cur_lon = start["lat"], start["lon"]
+    else:
+        first = valid.pop(0)
+        ordered.append(first)
+        cur_lat, cur_lon = first["lat"], first["lon"]
+
+    while valid:
+        valid.sort(key=lambda s: _haversine_miles(cur_lat, cur_lon, s["lat"], s["lon"]))
+        nxt = valid.pop(0)
+        ordered.append(nxt)
+        cur_lat, cur_lon = nxt["lat"], nxt["lon"]
+
+    ordered.extend(invalid)
+    return ordered
+
+
+def _build_google_maps_url(start: dict | None, stops: list[dict]) -> str:
+    """Generate a Google Maps multi-stop directions URL."""
+    from urllib.parse import quote
+    if not stops:
+        return ""
+    addrs = ([start["address"]] if start else []) + [s["address"] for s in stops]
+    if len(addrs) < 2:
+        # Single destination only — open as a search
+        return f"https://www.google.com/maps/dir/?api=1&destination={quote(addrs[0])}&travelmode=driving"
+
+    origin      = quote(addrs[0])
+    destination = quote(addrs[-1])
+    waypoints   = "|".join(quote(a) for a in addrs[1:-1])
+    url = (f"https://www.google.com/maps/dir/?api=1"
+           f"&origin={origin}&destination={destination}&travelmode=driving")
+    if waypoints:
+        url += f"&waypoints={waypoints}"
+    return url
+
+
+def _build_apple_maps_url(start: dict | None, stops: list[dict]) -> str:
+    """Apple Maps URL (saddr → daddr only — Apple Maps URL scheme is single-leg)."""
+    from urllib.parse import quote
+    if not stops:
+        return ""
+    if start:
+        return (f"https://maps.apple.com/?saddr={quote(start['address'])}"
+                f"&daddr={quote(stops[0]['address'])}&dirflg=d")
+    if len(stops) >= 2:
+        return (f"https://maps.apple.com/?saddr={quote(stops[0]['address'])}"
+                f"&daddr={quote(stops[1]['address'])}&dirflg=d")
+    return f"https://maps.apple.com/?daddr={quote(stops[0]['address'])}&dirflg=d"
+
+
+@app.route("/api/showings/optimize", methods=["POST"])
+def api_showings_optimize():
+    data            = request.get_json()
+    addresses       = [a.strip() for a in data.get("addresses", []) if a and a.strip()]
+    start_addr      = (data.get("start") or "").strip()
+    showing_minutes = int(data.get("showing_minutes", 30) or 30)
+
+    if len(addresses) < 1:
+        return jsonify({"error": "Add at least one property to plan a route."}), 400
+
+    # Geocode all addresses (uses free Nominatim — already imported)
+    stops = []
+    for addr in addresses:
+        lat, lon = _geocode(addr)
+        stops.append({"address": addr, "lat": lat, "lon": lon})
+
+    start = None
+    if start_addr:
+        slat, slon = _geocode(start_addr)
+        start = {"address": start_addr, "lat": slat, "lon": slon}
+
+    # Optimize order
+    ordered = _optimize_stops(stops, start)
+
+    # Calculate distances + total
+    total_miles = 0.0
+    legs = []
+    prev = start if (start and start.get("lat") is not None) else None
+    if prev is None and ordered and ordered[0].get("lat") is not None:
+        prev = ordered[0]
+        leg_iter = ordered[1:]
+    else:
+        leg_iter = ordered
+
+    for stop in leg_iter:
+        if prev and prev.get("lat") is not None and stop.get("lat") is not None:
+            d = _haversine_miles(prev["lat"], prev["lon"], stop["lat"], stop["lon"])
+            legs.append(round(d, 1))
+            total_miles += d
+        else:
+            legs.append(None)
+        prev = stop
+
+    # Estimates: 35 mph average suburban, 30 min default per showing
+    drive_min = int(total_miles / 35 * 60) if total_miles else 0
+    tour_min  = drive_min + (showing_minutes * len(ordered))
+
+    return jsonify({
+        "ok":                True,
+        "start":             start,
+        "stops":             ordered,
+        "legs":              legs,
+        "total_miles":       round(total_miles, 1),
+        "total_drive_min":   drive_min,
+        "total_tour_min":    tour_min,
+        "showing_minutes":   showing_minutes,
+        "google_maps_url":   _build_google_maps_url(start, ordered),
+        "apple_maps_url":    _build_apple_maps_url(start, ordered),
+    })
+
+
 @app.route("/contact", methods=["POST"])
 def contact():
     name    = request.form.get("contact_name", "").strip()
