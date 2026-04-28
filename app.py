@@ -45,7 +45,7 @@ WATERMARK_LINE = (
 WATERMARK = "\n\n" + WATERMARK_LINE
 
 # Daily per-session, per-tool generation limit for free users. Resets at midnight UTC.
-FREE_DAILY_LIMIT_PER_TOOL = 3
+FREE_DAILY_LIMIT_PER_TOOL = 5
 CALENDLY_URL              = "https://calendly.com/wahlquiststephen/30min"
 
 # Friendly tool labels used in the limit message
@@ -65,7 +65,7 @@ TOOL_LABELS = {
 
 def _limit_message(tool_name: str = "") -> str:
     label = TOOL_LABELS.get(tool_name, "AI generation")
-    return (f"You've used your 3 free {label} generations for today. "
+    return (f"You've used your {FREE_DAILY_LIMIT_PER_TOOL} free {label} generations for today. "
             f"Book a free 15-minute call for unlimited access: {CALENDLY_URL}")
 
 # Generic fallback message kept for backward compatibility
