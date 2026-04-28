@@ -34,6 +34,14 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "premier-realty-dev-secret-2024")
 
+# Force INFO-level logging in production so diagnostic logs surface in Railway
+import logging, sys
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s"))
+app.logger.addHandler(_handler)
+app.logger.setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.INFO)
+
 AI_MODEL = "claude-sonnet-4-20250514"
 
 # ── Conversion funnel ───────────────────────────────────────────────────────────
