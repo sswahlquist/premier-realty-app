@@ -1788,30 +1788,47 @@ def _osrm_route(coords: list[tuple]) -> dict | None:
     Returns dict {total_meters, total_seconds, legs:[{meters,seconds},...]} or None on failure.
     """
     if len(coords) < 2:
+        app.logger.warning(f"OSRM skipped: only {len(coords)} coords")
         return None
     try:
         # OSRM expects "lon,lat;lon,lat" — longitude FIRST
         coord_str = ";".join(f"{lon},{lat}" for lat, lon in coords)
+        url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}"
+        app.logger.info(f"OSRM request: {url}")
         r = requests.get(
-            f"https://router.project-osrm.org/route/v1/driving/{coord_str}",
+            url,
             params={"overview": "false", "alternatives": "false"},
-            timeout=12,
+            timeout=15,
         )
+        app.logger.info(f"OSRM response status: {r.status_code}")
         r.raise_for_status()
         data = r.json()
         if data.get("code") != "Ok" or not data.get("routes"):
+            app.logger.warning(f"OSRM bad response: code={data.get('code')}, "
+                               f"message={data.get('message')}")
             return None
         route = data["routes"][0]
+        total_m   = route.get("distance", 0)
+        total_s   = route.get("duration", 0)
+        app.logger.info(f"OSRM route: {total_m/1609.344:.1f} mi, "
+                        f"{total_s/60:.1f} min")
         legs = [
             {"meters": leg.get("distance", 0), "seconds": leg.get("duration", 0)}
             for leg in route.get("legs", [])
         ]
         return {
-            "total_meters":  route.get("distance", 0),
-            "total_seconds": route.get("duration", 0),
+            "total_meters":  total_m,
+            "total_seconds": total_s,
             "legs": legs,
         }
-    except Exception:
+    except requests.exceptions.Timeout:
+        app.logger.warning("OSRM timeout (>15s)")
+        return None
+    except requests.exceptions.HTTPError as e:
+        app.logger.warning(f"OSRM HTTP error: {e}")
+        return None
+    except Exception as e:
+        app.logger.warning(f"OSRM exception: {type(e).__name__}: {e}")
         return None
 
 
@@ -1864,12 +1881,18 @@ def api_showings_optimize():
     stops = []
     for addr in addresses:
         lat, lon = _geocode(addr)
+        app.logger.info(f"Geocode: '{addr}' → ({lat}, {lon})")
         stops.append({"address": addr, "lat": lat, "lon": lon})
 
     start = None
     if start_addr:
         slat, slon = _geocode(start_addr)
+        app.logger.info(f"Geocode start: '{start_addr}' → ({slat}, {slon})")
         start = {"address": start_addr, "lat": slat, "lon": slon}
+
+    # Count successfully geocoded addresses
+    geocoded_count = sum(1 for s in stops if s.get("lat") is not None)
+    app.logger.info(f"Geocoded {geocoded_count}/{len(stops)} stops successfully")
 
     # Optimize order using straight-line distance heuristic (good enough for nearest-neighbor)
     ordered = _optimize_stops(stops, start)

@@ -400,6 +400,9 @@
   <!-- Results -->
   <div class="tour-results" id="tourResults">
 
+    <!-- Routing source badge -->
+    <div id="sourceBadge" style="display:inline-block;font-size:0.75rem;padding:6px 12px;border-radius:8px;margin-bottom:14px;font-weight:600;"></div>
+
     <!-- Stats -->
     <div class="tour-stats">
       <div class="stat-tile">
@@ -524,6 +527,20 @@ function renderRoute(data) {
   document.getElementById("statMiles").textContent = data.total_miles.toFixed(1);
   document.getElementById("statDrive").textContent = fmtMin(data.total_drive_min);
   document.getElementById("statTour").textContent  = fmtMin(data.total_tour_min);
+
+  // Routing source badge
+  const badge = document.getElementById("sourceBadge");
+  if (data.routing_source === "osrm") {
+    badge.style.background = "#eaf7ee";
+    badge.style.color = "#1a6b30";
+    badge.style.border = "1px solid #9fd4ac";
+    badge.textContent = "✅ Live road routing — distances and times match real driving routes";
+  } else {
+    badge.style.background = "#fff3cd";
+    badge.style.color = "#856404";
+    badge.style.border = "1px solid #ffc107";
+    badge.textContent = "⚠️ Estimated only — routing service unavailable, using straight-line approximation";
+  }
 
   document.getElementById("googleBtn").href = data.google_maps_url;
   document.getElementById("appleBtn").href  = data.apple_maps_url;
