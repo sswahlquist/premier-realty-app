@@ -44,47 +44,71 @@ WATERMARK_LINE = (
 )
 WATERMARK = "\n\n" + WATERMARK_LINE
 
-# Daily per-session generation limit for free users. Resets at midnight UTC.
-FREE_DAILY_LIMIT = 3
-CALENDLY_URL     = "https://calendly.com/wahlquiststephen/30min"
+# Daily per-session, per-tool generation limit for free users. Resets at midnight UTC.
+FREE_DAILY_LIMIT_PER_TOOL = 3
+CALENDLY_URL              = "https://calendly.com/wahlquiststephen/30min"
 
-LIMIT_MESSAGE = (
-    "You've used your 3 free generations for today. Book a free 15-minute call "
-    "for unlimited access: " + CALENDLY_URL
-)
+# Friendly tool labels used in the limit message
+TOOL_LABELS = {
+    "valuation":     "valuation",
+    "comps":         "comps lookup",
+    "listing":       "listing description",
+    "leads":         "lead message",
+    "deals":         "deal analysis",
+    "neighborhood":  "neighborhood profile",
+    "neighborhood_compare": "neighborhood comparison",
+    "calculator":    "mortgage chat",
+    "chat":          "Alex chat message",
+    "showings":      "tour route",
+}
 
 
-def check_and_increment_usage() -> bool:
-    """Return True if the session has generations left today (UTC), False if capped.
-    Increments the per-session counter on each allowed call."""
+def _limit_message(tool_name: str = "") -> str:
+    label = TOOL_LABELS.get(tool_name, "AI generation")
+    return (f"You've used your 3 free {label} generations for today. "
+            f"Book a free 15-minute call for unlimited access: {CALENDLY_URL}")
+
+# Generic fallback message kept for backward compatibility
+LIMIT_MESSAGE = _limit_message()
+
+
+def check_and_increment_usage(tool_name: str = "default") -> bool:
+    """Return True if this session has uses left of `tool_name` today (UTC),
+    False if the per-tool daily limit has been hit. Increments on success."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Reset all tool counters at start of a new UTC day
     if session.get("gen_date") != today:
-        session["gen_date"]  = today
-        session["gen_count"] = 0
-    if session.get("gen_count", 0) >= FREE_DAILY_LIMIT:
+        session["gen_date"]   = today
+        session["gen_counts"] = {}
+    counts = session.get("gen_counts") or {}
+    if counts.get(tool_name, 0) >= FREE_DAILY_LIMIT_PER_TOOL:
         return False
-    session["gen_count"] = session.get("gen_count", 0) + 1
-    session.modified = True
+    counts[tool_name]      = counts.get(tool_name, 0) + 1
+    session["gen_counts"]  = counts
+    session.modified       = True
     return True
 
 
-def limit_json_response():
-    """Standard JSON payload returned when a session has hit the daily limit."""
+def limit_json_response(tool_name: str = ""):
+    """Standard JSON payload returned when a session has hit the per-tool limit."""
     return jsonify({
-        "error":         LIMIT_MESSAGE,
+        "error":         _limit_message(tool_name),
         "limit_reached": True,
+        "tool":          tool_name,
         "calendly_url":  CALENDLY_URL,
     }), 429
 
 
-def gate_json(fn):
-    """Decorator for JSON AI endpoints — blocks past the daily limit."""
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if not check_and_increment_usage():
-            return limit_json_response()
-        return fn(*args, **kwargs)
-    return wrapper
+def gate_json(tool_name: str):
+    """Decorator factory for JSON AI endpoints. Usage: @gate_json("comps")"""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not check_and_increment_usage(tool_name):
+                return limit_json_response(tool_name)
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # In-memory store for results (keyed by UUID)
@@ -609,8 +633,8 @@ def index():
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    if not check_and_increment_usage():
-        flash(LIMIT_MESSAGE, "error")
+    if not check_and_increment_usage("valuation"):
+        flash(_limit_message("valuation"), "error")
         return redirect(url_for("index") + "?limit=1")
 
     prop = {
@@ -801,7 +825,7 @@ def calculator():
 
 
 @app.route("/calculator-chat", methods=["POST"])
-@gate_json
+@gate_json("calculator")
 def calculator_chat():
     data        = request.get_json()
     income      = data.get("income", "")
@@ -954,7 +978,7 @@ def _parse_neighborhood(text: str) -> dict:
 
 
 @app.route("/neighborhood/analyze", methods=["POST"])
-@gate_json
+@gate_json("neighborhood")
 def neighborhood_analyze():
     data = request.get_json()
     name = (data.get("name") or "").strip()
@@ -977,7 +1001,7 @@ def neighborhood_analyze():
 
 
 @app.route("/neighborhood/compare", methods=["POST"])
-@gate_json
+@gate_json("neighborhood_compare")
 def neighborhood_compare():
     data  = request.get_json()
     n1, c1 = (data.get("name1") or "").strip(), (data.get("city1") or "").strip()
@@ -1074,7 +1098,7 @@ def chat():
 
 
 @app.route("/api/chat", methods=["POST"])
-@gate_json
+@gate_json("chat")
 def api_chat():
     data       = request.get_json()
     message    = (data.get("message") or "").strip()
@@ -1140,7 +1164,7 @@ def leads():
 
 
 @app.route("/leads/generate", methods=["POST"])
-@gate_json
+@gate_json("leads")
 def leads_generate():
     data         = request.get_json()
     name         = (data.get("name") or "").strip()
@@ -1295,7 +1319,7 @@ def deals():
 
 
 @app.route("/deals/analyze", methods=["POST"])
-@gate_json
+@gate_json("deals")
 def deals_analyze():
     data = request.get_json()
 
@@ -1509,7 +1533,7 @@ def listing():
 
 
 @app.route("/api/listing", methods=["POST"])
-@gate_json
+@gate_json("listing")
 def api_listing():
     data = request.get_json()
 
@@ -1611,7 +1635,7 @@ def comps():
 
 
 @app.route("/api/comps", methods=["POST"])
-@gate_json
+@gate_json("comps")
 def api_comps():
     data        = request.get_json()
     address     = (data.get("address") or "").strip()
@@ -1792,6 +1816,7 @@ def _build_apple_maps_url(start: dict | None, stops: list[dict]) -> str:
 
 
 @app.route("/api/showings/optimize", methods=["POST"])
+@gate_json("showings")
 def api_showings_optimize():
     data            = request.get_json()
     addresses       = [a.strip() for a in data.get("addresses", []) if a and a.strip()]
