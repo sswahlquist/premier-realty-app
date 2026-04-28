@@ -530,11 +530,16 @@ function renderRoute(data) {
 
   // Routing source badge
   const badge = document.getElementById("sourceBadge");
-  if (data.routing_source === "osrm") {
+  if (data.routing_source === "mapbox") {
     badge.style.background = "#eaf7ee";
     badge.style.color = "#1a6b30";
     badge.style.border = "1px solid #9fd4ac";
-    badge.textContent = "✅ Live road routing — distances and times match real driving routes";
+    badge.textContent = "✅ High-accuracy routing (Mapbox) — matches Google Maps closely";
+  } else if (data.routing_source === "osrm") {
+    badge.style.background = "#fff8e6";
+    badge.style.color = "#856404";
+    badge.style.border = "1px solid #f0d9aa";
+    badge.textContent = "ℹ️ Live road routing (OpenStreetMap) — accurate in cities, less reliable for rural addresses";
   } else {
     badge.style.background = "#fff3cd";
     badge.style.color = "#856404";

@@ -21,6 +21,7 @@ import stripe
 
 stripe.api_key    = os.environ.get("STRIPE_SECRET_KEY", "")
 RAPIDAPI_KEY      = os.environ.get("RAPIDAPI_KEY", "")
+MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "")
 REPORT_PRICE_CENTS = int(os.environ.get("REPORT_PRICE_CENTS", "999"))   # $9.99 default
 REPORTS_DIR = pathlib.Path("reports")
 
@@ -155,8 +156,33 @@ def _haversine_miles(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _geocode_mapbox(address: str):
+    """High-accuracy geocoder via Mapbox (requires MAPBOX_TOKEN env var)."""
+    if not MAPBOX_TOKEN:
+        return None, None
+    try:
+        from urllib.parse import quote
+        r = requests.get(
+            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(address)}.json",
+            params={"access_token": MAPBOX_TOKEN, "limit": 1, "country": "us"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        feats = r.json().get("features", [])
+        if feats and feats[0].get("center"):
+            lon, lat = feats[0]["center"]   # Mapbox returns [lon, lat]
+            return float(lat), float(lon)
+    except Exception as e:
+        app.logger.warning(f"Mapbox geocode failed for '{address}': {e}")
+    return None, None
+
+
 def _geocode(address: str):
-    """Return (lat, lon) for an address via free Nominatim API, or (None, None)."""
+    """Try Mapbox first (high accuracy), fall back to free Nominatim."""
+    if MAPBOX_TOKEN:
+        lat, lon = _geocode_mapbox(address)
+        if lat is not None:
+            return lat, lon
     try:
         r = requests.get(
             "https://nominatim.openstreetmap.org/search",
@@ -170,6 +196,45 @@ def _geocode(address: str):
     except Exception:
         pass
     return None, None
+
+
+def _mapbox_directions(coords: list[tuple]) -> dict | None:
+    """Mapbox Directions API — requires MAPBOX_TOKEN. Higher accuracy than OSRM."""
+    if not MAPBOX_TOKEN or len(coords) < 2:
+        return None
+    try:
+        coord_str = ";".join(f"{lon},{lat}" for lat, lon in coords)
+        url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coord_str}"
+        app.logger.info(f"Mapbox directions request ({len(coords)} stops)")
+        r = requests.get(
+            url,
+            params={"access_token": MAPBOX_TOKEN, "overview": "false",
+                    "alternatives": "false"},
+            timeout=15,
+        )
+        app.logger.info(f"Mapbox directions status: {r.status_code}")
+        r.raise_for_status()
+        data = r.json()
+        if data.get("code") != "Ok" or not data.get("routes"):
+            app.logger.warning(f"Mapbox bad response: code={data.get('code')}, "
+                               f"message={data.get('message')}")
+            return None
+        route = data["routes"][0]
+        total_m = route.get("distance", 0)
+        total_s = route.get("duration", 0)
+        app.logger.info(f"Mapbox route: {total_m/1609.344:.1f} mi, "
+                        f"{total_s/60:.1f} min")
+        legs = [{"meters": l.get("distance", 0), "seconds": l.get("duration", 0)}
+                for l in route.get("legs", [])]
+        return {
+            "total_meters":  total_m,
+            "total_seconds": total_s,
+            "legs":          legs,
+            "source":        "mapbox",
+        }
+    except Exception as e:
+        app.logger.warning(f"Mapbox directions exception: {type(e).__name__}: {e}")
+        return None
 
 
 def _extract_location(address: str) -> str:
@@ -1915,20 +1980,23 @@ def api_showings_optimize():
 
     coords = [(w["lat"], w["lon"]) for w in waypoints]
 
-    # ── Try OSRM for real road distances + driving times ─────────────
-    legs        = []
-    total_miles = 0.0
-    drive_sec   = 0
-    osrm_used   = False
+    # ── Routing: try Mapbox first (highest accuracy), then OSRM, then Haversine ─
+    legs           = []
+    total_miles    = 0.0
+    drive_sec      = 0
+    routing_source = "estimate"
 
-    osrm = _osrm_route(coords) if len(coords) >= 2 else None
-    if osrm and osrm.get("legs"):
-        osrm_used = True
-        for leg in osrm["legs"]:
+    route = None
+    if len(coords) >= 2:
+        route = _mapbox_directions(coords) or _osrm_route(coords)
+
+    if route and route.get("legs"):
+        routing_source = route.get("source", "osrm")
+        for leg in route["legs"]:
             miles = leg["meters"] / 1609.344
             legs.append(round(miles, 1))
             total_miles += miles
-        drive_sec = osrm["total_seconds"]
+        drive_sec = route["total_seconds"]
     else:
         # Fallback: Haversine straight-line × 1.3 (typical road-vs-crow ratio)
         prev = waypoints[0] if waypoints else None
@@ -1958,7 +2026,7 @@ def api_showings_optimize():
         "total_drive_min":   drive_min,
         "total_tour_min":    tour_min,
         "showing_minutes":   showing_minutes,
-        "routing_source":    "osrm" if osrm_used else "estimate",
+        "routing_source":    routing_source,
         "google_maps_url":   _build_google_maps_url(start, ordered),
         "apple_maps_url":    _build_apple_maps_url(start, ordered),
     })
