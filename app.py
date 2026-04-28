@@ -1781,6 +1781,40 @@ def _optimize_stops(stops: list[dict], start: dict | None) -> list[dict]:
     return ordered
 
 
+def _osrm_route(coords: list[tuple]) -> dict | None:
+    """
+    Get real driving distance + time via the free OSRM public routing API.
+    coords: ordered list of (lat, lon) tuples, length >= 2.
+    Returns dict {total_meters, total_seconds, legs:[{meters,seconds},...]} or None on failure.
+    """
+    if len(coords) < 2:
+        return None
+    try:
+        # OSRM expects "lon,lat;lon,lat" — longitude FIRST
+        coord_str = ";".join(f"{lon},{lat}" for lat, lon in coords)
+        r = requests.get(
+            f"https://router.project-osrm.org/route/v1/driving/{coord_str}",
+            params={"overview": "false", "alternatives": "false"},
+            timeout=12,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if data.get("code") != "Ok" or not data.get("routes"):
+            return None
+        route = data["routes"][0]
+        legs = [
+            {"meters": leg.get("distance", 0), "seconds": leg.get("duration", 0)}
+            for leg in route.get("legs", [])
+        ]
+        return {
+            "total_meters":  route.get("distance", 0),
+            "total_seconds": route.get("duration", 0),
+            "legs": legs,
+        }
+    except Exception:
+        return None
+
+
 def _build_google_maps_url(start: dict | None, stops: list[dict]) -> str:
     """Generate a Google Maps multi-stop directions URL."""
     from urllib.parse import quote
@@ -1837,31 +1871,52 @@ def api_showings_optimize():
         slat, slon = _geocode(start_addr)
         start = {"address": start_addr, "lat": slat, "lon": slon}
 
-    # Optimize order
+    # Optimize order using straight-line distance heuristic (good enough for nearest-neighbor)
     ordered = _optimize_stops(stops, start)
 
-    # Calculate distances + total
-    total_miles = 0.0
-    legs = []
-    prev = start if (start and start.get("lat") is not None) else None
-    if prev is None and ordered and ordered[0].get("lat") is not None:
-        prev = ordered[0]
-        leg_iter = ordered[1:]
-    else:
-        leg_iter = ordered
+    # Build full ordered coord list (start + stops) for routing API
+    waypoints: list[dict] = []
+    if start and start.get("lat") is not None:
+        waypoints.append(start)
+    for s in ordered:
+        if s.get("lat") is not None:
+            waypoints.append(s)
 
-    for stop in leg_iter:
-        if prev and prev.get("lat") is not None and stop.get("lat") is not None:
-            d = _haversine_miles(prev["lat"], prev["lon"], stop["lat"], stop["lon"])
+    coords = [(w["lat"], w["lon"]) for w in waypoints]
+
+    # ── Try OSRM for real road distances + driving times ─────────────
+    legs        = []
+    total_miles = 0.0
+    drive_sec   = 0
+    osrm_used   = False
+
+    osrm = _osrm_route(coords) if len(coords) >= 2 else None
+    if osrm and osrm.get("legs"):
+        osrm_used = True
+        for leg in osrm["legs"]:
+            miles = leg["meters"] / 1609.344
+            legs.append(round(miles, 1))
+            total_miles += miles
+        drive_sec = osrm["total_seconds"]
+    else:
+        # Fallback: Haversine straight-line × 1.3 (typical road-vs-crow ratio)
+        prev = waypoints[0] if waypoints else None
+        for stop in waypoints[1:]:
+            d = _haversine_miles(prev["lat"], prev["lon"], stop["lat"], stop["lon"]) * 1.3
             legs.append(round(d, 1))
             total_miles += d
-        else:
-            legs.append(None)
-        prev = stop
+            prev = stop
+        drive_sec = (total_miles / 35) * 3600  # 35 mph fallback
 
-    # Estimates: 35 mph average suburban, 30 min default per showing
-    drive_min = int(total_miles / 35 * 60) if total_miles else 0
+    drive_min = int(round(drive_sec / 60))
     tour_min  = drive_min + (showing_minutes * len(ordered))
+
+    # Front-end uses legs[i] as "miles from previous stop" for stop i.
+    # If a starting address was provided, the first leg is start→stop[0],
+    # and each subsequent leg is stop[i-1]→stop[i].
+    # If no start, legs are stop[0]→stop[1], etc., so we pad with None for stop[0].
+    if not (start and start.get("lat") is not None) and ordered:
+        legs = [None] + legs
 
     return jsonify({
         "ok":                True,
@@ -1872,6 +1927,7 @@ def api_showings_optimize():
         "total_drive_min":   drive_min,
         "total_tour_min":    tour_min,
         "showing_minutes":   showing_minutes,
+        "routing_source":    "osrm" if osrm_used else "estimate",
         "google_maps_url":   _build_google_maps_url(start, ordered),
         "apple_maps_url":    _build_apple_maps_url(start, ordered),
     })
