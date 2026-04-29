@@ -22,8 +22,21 @@ import stripe
 stripe.api_key    = os.environ.get("STRIPE_SECRET_KEY", "")
 RAPIDAPI_KEY      = os.environ.get("RAPIDAPI_KEY", "")
 MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "")
+RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
+NOTIFICATION_EMAIL = os.environ.get("NOTIFICATION_EMAIL", "s.s.wahlquist@gmail.com")
+FROM_EMAIL        = os.environ.get("FROM_EMAIL", "onboarding@resend.dev")
 REPORT_PRICE_CENTS = int(os.environ.get("REPORT_PRICE_CENTS", "999"))   # $9.99 default
-REPORTS_DIR = pathlib.Path("reports")
+
+# ── Persistent storage ──────────────────────────────────────────────────────────
+# When DATA_DIR points at a Railway Persistent Volume mount path (e.g. /data),
+# reports and appointment data survive redeploys. Falls back to local "./data"
+# (or "." for legacy) so dev still works.
+DATA_DIR    = pathlib.Path(os.environ.get("DATA_DIR", "data"))
+REPORTS_DIR = DATA_DIR / "reports"
+APPOINTMENTS_FILE = DATA_DIR / "appointment_requests.txt"
+CONTACT_LOG_FILE  = DATA_DIR / "contact_submissions.txt"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -144,6 +157,96 @@ Your job:
 5. Never give specific legal or financial advice. If asked, say something like "That's a great question for a licensed attorney / financial advisor — I'd recommend consulting one. What I can tell you generally is..."
 6. Keep responses concise — 2 to 4 short paragraphs max. Use a friendly, conversational tone.
 7. Remember everything from earlier in the conversation and refer back to it naturally."""
+
+
+# ── Email (Resend) helpers ───────────────────────────────────────────────────────
+
+def send_email(to: str, subject: str, html: str, text: str = "") -> bool:
+    """Send a transactional email via Resend. Returns True on success.
+    Resend free tier: 100 emails/day, send from onboarding@resend.dev to your
+    own verified email (the address you signed up with) until you verify a domain."""
+    if not RESEND_API_KEY:
+        app.logger.warning(f"Email skipped (no RESEND_API_KEY): {subject}")
+        return False
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "from":    FROM_EMAIL,
+                "to":      [to],
+                "subject": subject,
+                "html":    html,
+                "text":    text or _strip_tags(html),
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        app.logger.info(f"Email sent to {to}: {subject}")
+        return True
+    except requests.exceptions.HTTPError as e:
+        app.logger.warning(f"Resend HTTP error: {e}; body: {e.response.text if e.response else ''}")
+        return False
+    except Exception as e:
+        app.logger.warning(f"Email send failed ({type(e).__name__}): {e}")
+        return False
+
+
+def _strip_tags(html: str) -> str:
+    """Crude HTML→plaintext for the text/plain alternative."""
+    return re.sub(r"<[^>]+>", "", html or "").strip()
+
+
+def _send_contact_email(name: str, email: str, phone: str, message: str) -> bool:
+    """Send a notification email when a website visitor submits the contact form."""
+    html = f"""
+    <h2 style="font-family:sans-serif;color:#1a2332;">New Contact Form Submission</h2>
+    <table style="font-family:sans-serif;font-size:14px;border-collapse:collapse;">
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Name</td>
+          <td style="padding:6px 12px;">{name or '—'}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Email</td>
+          <td style="padding:6px 12px;"><a href="mailto:{email}">{email or '—'}</a></td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Phone</td>
+          <td style="padding:6px 12px;">{phone or '—'}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;vertical-align:top;">Message</td>
+          <td style="padding:6px 12px;">{(message or '—').replace(chr(10), '<br/>')}</td></tr>
+    </table>
+    <p style="color:#888;font-size:12px;margin-top:20px;">
+      Submitted via swaiconsulting.com on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+    </p>
+    """
+    return send_email(NOTIFICATION_EMAIL, f"New Contact: {name or 'Anonymous'}", html)
+
+
+def _send_appointment_email(appt: dict) -> bool:
+    """Send notification email when Alex collects appointment info from a chat user."""
+    name  = appt.get("name", "")
+    email = appt.get("email", "")
+    phone = appt.get("phone", "")
+    time_pref = appt.get("time", "")
+    html = f"""
+    <h2 style="font-family:sans-serif;color:#1a2332;">📅 New Appointment Request</h2>
+    <p style="font-family:sans-serif;font-size:14px;">
+      Alex (the website chatbot) just collected an appointment request:
+    </p>
+    <table style="font-family:sans-serif;font-size:14px;border-collapse:collapse;">
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Name</td>
+          <td style="padding:6px 12px;">{name or '—'}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Email</td>
+          <td style="padding:6px 12px;"><a href="mailto:{email}">{email or '—'}</a></td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Phone</td>
+          <td style="padding:6px 12px;"><a href="tel:{phone}">{phone or '—'}</a></td></tr>
+      <tr><td style="padding:6px 12px;background:#f8f9fa;font-weight:600;">Preferred Time</td>
+          <td style="padding:6px 12px;">{time_pref or '—'}</td></tr>
+    </table>
+    <p style="font-family:sans-serif;font-size:13px;color:#856404;background:#fff8e6;padding:10px 14px;border-radius:6px;">
+      💡 Reach out within the hour — leads contacted within 60 minutes are 7× more likely to convert.
+    </p>
+    """
+    return send_email(NOTIFICATION_EMAIL, f"📅 New Appointment Request — {name or 'Anonymous'}", html)
 
 
 # ── Zillow / RapidAPI helpers ────────────────────────────────────────────────────
@@ -1204,14 +1307,16 @@ def api_chat():
                 # Find the JSON object
                 end_pos = json_str.find("}") + 1
                 appt    = json.loads(json_str[:end_pos])
-                # Save to file
-                with open("appointment_requests.txt", "a", encoding="utf-8") as f:
+                # Persist to disk (survives redeploys when DATA_DIR is on a volume)
+                with open(APPOINTMENTS_FILE, "a", encoding="utf-8") as f:
                     f.write(f"\n{'='*50}\n")
                     f.write(f"Date: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n")
                     f.write(f"Name:  {appt.get('name','')}\n")
                     f.write(f"Email: {appt.get('email','')}\n")
                     f.write(f"Phone: {appt.get('phone','')}\n")
                     f.write(f"Preferred Time: {appt.get('time','')}\n")
+                # Email notification
+                _send_appointment_email(appt)
                 # Strip the data marker from the displayed reply
                 clean_reply = reply[:marker_pos].strip()
             except Exception:
@@ -2038,7 +2143,23 @@ def contact():
     email   = request.form.get("contact_email", "").strip()
     phone   = request.form.get("contact_phone", "").strip()
     message = request.form.get("contact_message", "").strip()
-    # In production, send an email here. For now, just confirm.
+
+    # Persist submission to disk so it survives container restarts
+    try:
+        with open(CONTACT_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*50}\n")
+            f.write(f"Date: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n")
+            f.write(f"Name:    {name}\n")
+            f.write(f"Email:   {email}\n")
+            f.write(f"Phone:   {phone}\n")
+            f.write(f"Message: {message}\n")
+    except Exception as e:
+        app.logger.warning(f"Failed to log contact submission: {e}")
+
+    # Send notification email
+    sent = _send_contact_email(name, email, phone, message)
+    app.logger.info(f"Contact form: {name} <{email}> — email_sent={sent}")
+
     flash(f"Thank you {name}! We'll be in touch shortly at {email}.", "success")
     return redirect(url_for("index") + "#contact")
 
