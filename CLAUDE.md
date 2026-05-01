@@ -215,15 +215,31 @@ git push origin main
 
 ## Design System
 
-- **Colors**: Navy `#1a2332`, Gold `#c8a97e`, White `#fff`
+- **Colors**: Navy `#1a2332`, Gold `#c8a97e`, White `#fff` (defined as CSS vars `--navy`, `--gold`)
 - **Fonts**: Merriweather (headings), Inter (body)
 - **Theme**: Upscale real estate — dark, professional, trust-building
 - **Mobile**: Fully responsive; hamburger menu in `base.html` exposes all tools
 
 ---
 
-## Owner & Contact
+## Coding Standards
 
+- **Never hardcode API keys** — always use `os.environ.get("VAR_NAME", "")` and set in Railway Variables
+- **Color scheme**: use CSS variables `var(--navy)` / `var(--gold)` or the hex values `#1a2332` / `#c8a97e`
+- **New pages must** `{% extends "base.html" %}` and use `{% block content %}` / `{% block title %}`
+- **All AI calls** use `AI_MODEL = "claude-sonnet-4-20250514"` — don't hardcode the model string inline
+- **New AI endpoints** must be decorated with `@gate_json("tool_name")` for rate limiting
+- **All routes** follow the existing pattern: GET for pages, POST/JSON for AI API calls
+- **Logging**: use `app.logger.info()` / `app.logger.warning()` — never `print()`
+- **No new dependencies** without adding to `requirements.txt`
+
+---
+
+## Client Info
+
+- **Client**: Stephen Wahlquist AI Consulting
 - **Agent**: Stephen Wahlquist, Greenville TX
+- **Target users**: Real estate agents and home buyers/sellers in the Greenville, TX area
+- **Business model**: Flat-fee setup + optional $75/mo maintenance
 - **Email**: s.s.wahlquist@gmail.com
 - **Calendly**: https://calendly.com/wahlquiststephen/30min
