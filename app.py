@@ -10,6 +10,7 @@ import io
 import re
 import math
 import pathlib
+import time
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -57,6 +58,54 @@ app.logger.setLevel(logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
 
 AI_MODEL = "claude-sonnet-4-20250514"
+
+# ── Anthropic client (shared — created once at startup, not per request) ────────
+_anthropic_client = anthropic.Anthropic()
+
+def _claude(prompt: str, *, system: str = "", max_tokens: int = 1024) -> str:
+    """Single-turn Claude call with error handling and rate-limit retry."""
+    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}])
+    if system:
+        kw["system"] = system
+    try:
+        return _anthropic_client.messages.create(**kw).content[0].text.strip()
+    except anthropic.RateLimitError:
+        app.logger.warning("Anthropic rate limit hit — waiting 10 s then retrying")
+        time.sleep(10)
+        return _anthropic_client.messages.create(**kw).content[0].text.strip()
+    except anthropic.AuthenticationError:
+        app.logger.error("Anthropic AuthenticationError — check ANTHROPIC_API_KEY")
+        raise
+    except anthropic.APIConnectionError as e:
+        app.logger.error(f"Anthropic connection error: {e}")
+        raise
+    except anthropic.APIStatusError as e:
+        app.logger.error(f"Anthropic API error {e.status_code}: {e.message}")
+        raise
+
+
+def _claude_messages(messages: list, *, system: str = "", max_tokens: int = 1024) -> str:
+    """Multi-turn Claude call with error handling and rate-limit retry."""
+    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens, messages=messages)
+    if system:
+        kw["system"] = system
+    try:
+        return _anthropic_client.messages.create(**kw).content[0].text.strip()
+    except anthropic.RateLimitError:
+        app.logger.warning("Anthropic rate limit hit — waiting 10 s then retrying")
+        time.sleep(10)
+        return _anthropic_client.messages.create(**kw).content[0].text.strip()
+    except anthropic.AuthenticationError:
+        app.logger.error("Anthropic AuthenticationError — check ANTHROPIC_API_KEY")
+        raise
+    except anthropic.APIConnectionError as e:
+        app.logger.error(f"Anthropic connection error: {e}")
+        raise
+    except anthropic.APIStatusError as e:
+        app.logger.error(f"Anthropic API error {e.status_code}: {e.message}")
+        raise
+
 
 # ── Conversion funnel ───────────────────────────────────────────────────────────
 # Watermark appended to every public AI-generated output. Exact line per spec.
@@ -516,12 +565,7 @@ COMP_2_NOTE: [sentence]
 ... (through COMP_{len(comps)}_NOTE)"""
 
     try:
-        client = anthropic.Anthropic()
-        resp = client.messages.create(
-            model=AI_MODEL, max_tokens=400,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = resp.content[0].text.strip()
+        raw = _claude(prompt, max_tokens=400)
         for i, comp in enumerate(comps, 1):
             marker = f"COMP_{i}_NOTE:"
             pos = raw.find(marker)
@@ -588,13 +632,7 @@ Rules:
 - Professional but readable — not overly technical
 - No markdown, no asterisks, plain prose in body sections"""
 
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model=AI_MODEL,
-        max_tokens=1200,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return parse_claude(response.content[0].text.strip())
+    return parse_claude(_claude(prompt, max_tokens=1200))
 
 
 def parse_claude(text: str) -> dict:
@@ -1029,14 +1067,7 @@ Never give tax or legal advice. If they ask something outside home affordability
     messages.append({"role": "user", "content": user_msg})
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=600,
-            system=system,
-            messages=messages,
-        )
-        reply = response.content[0].text.strip()
+        reply = _claude_messages(messages, system=system, max_tokens=600)
         messages.append({"role": "assistant", "content": reply})
         return jsonify({"reply": reply, "history": messages})
     except anthropic.AuthenticationError:
@@ -1162,13 +1193,7 @@ def neighborhood_analyze():
     if not name or not city:
         return jsonify({"error": "Neighborhood name and city are required."}), 400
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=1600,
-            messages=[{"role": "user", "content": _neighborhood_prompt(name, city)}],
-        )
-        parsed = _parse_neighborhood(response.content[0].text.strip())
+        parsed = _parse_neighborhood(_claude(_neighborhood_prompt(name, city), max_tokens=1600))
         return jsonify({"ok": True, "name": name, "city": city, "profile": parsed})
     except anthropic.AuthenticationError:
         return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
@@ -1216,13 +1241,7 @@ KEY_DIFFERENCES:
 Rules: Be specific and honest. No markdown. Bullets start with "- ". Pipe "|" separates label from explanation in WINNER fields."""
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=3200,
-            messages=[{"role": "user", "content": compare_prompt}],
-        )
-        raw = response.content[0].text.strip()
+        raw = _claude(compare_prompt, max_tokens=3200)
 
         # Split into sections
         a_start = raw.find("=== NEIGHBORHOOD_A ===")
@@ -1288,14 +1307,7 @@ def api_chat():
     history.append({"role": "user", "content": message})
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=600,
-            system=ALEX_SYSTEM,
-            messages=history,
-        )
-        reply = response.content[0].text.strip()
+        reply = _claude_messages(history, system=ALEX_SYSTEM, max_tokens=600)
 
         # Check for appointment data and save it
         appt_marker = "APPOINTMENT_DATA:"
@@ -1444,13 +1456,7 @@ BODY:
 [email body text]"""
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
+        raw = _claude(prompt, max_tokens=500)
 
         if output_type == "sms":
             sms_msg, char_count = "", 0
@@ -1658,13 +1664,7 @@ SUMMARY:
 Rules: No markdown, no asterisks. Bullets start with "- ". Be direct."""
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
+        raw = _claude(prompt, max_tokens=800)
 
         # Parse Claude response
         keys = ["VERDICT", "STRENGTHS", "RISKS", "IMPROVEMENTS", "SUMMARY"]
@@ -1768,13 +1768,7 @@ VERSION_3:
 Each version must end with a call to action. No titles, no headers inside the descriptions."""
 
     try:
-        client   = anthropic.Anthropic()
-        response = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=1800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
+        raw = _claude(prompt, max_tokens=1800)
 
         # Parse the three versions
         def extract(text, key):
@@ -1887,12 +1881,7 @@ COMP_1_NOTES:
 Rules: All 6 in same city/metro. Vary prices realistically. Vary distances 0.2–1.5 miles. No markdown."""
 
         try:
-            client   = anthropic.Anthropic()
-            response = client.messages.create(
-                model=AI_MODEL, max_tokens=1800,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = response.content[0].text.strip()
+            raw = _claude(prompt, max_tokens=1800)
 
             for n in range(1, 7):
                 def _get(key, _raw=raw, _n=n):
