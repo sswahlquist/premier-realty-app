@@ -867,6 +867,7 @@ def analyze():
             "address": request.form.get(f"comp{i}_address", "").strip(),
             "price":   request.form.get(f"comp{i}_price", "").strip(),
         })
+    app.logger.info(f"valuation | address={prop['address']} beds={prop['beds']} baths={prop['baths']} sqft={prop['sqft']} condition={prop['condition']}")
 
     # Basic validation
     if not prop["address"] or not prop["sqft"]:
@@ -1045,6 +1046,7 @@ def calculator_chat():
     income      = data.get("income", "")
     extra       = data.get("message", "")
     history     = data.get("history", [])
+    app.logger.info(f"calculator | income={income} msg={str(extra)[:60]} history_len={len(history)}")
 
     if not income and not extra:
         return jsonify({"error": "No input provided"}), 400
@@ -1192,6 +1194,7 @@ def neighborhood_analyze():
     city = (data.get("city") or "").strip()
     if not name or not city:
         return jsonify({"error": "Neighborhood name and city are required."}), 400
+    app.logger.info(f"neighborhood | name={name} city={city}")
     try:
         parsed = _parse_neighborhood(_claude(_neighborhood_prompt(name, city), max_tokens=1600))
         return jsonify({"ok": True, "name": name, "city": city, "profile": parsed})
@@ -1209,6 +1212,7 @@ def neighborhood_compare():
     n2, c2 = (data.get("name2") or "").strip(), (data.get("city2") or "").strip()
     if not n1 or not c1 or not n2 or not c2:
         return jsonify({"error": "Both neighborhoods and cities are required."}), 400
+    app.logger.info(f"neighborhood_compare | {n1}, {c1} vs {n2}, {c2}")
 
     compare_prompt = f"""You are a real estate market analyst. Compare these two neighborhoods side by side:
 Neighborhood A: {n1}, {c1}
@@ -1301,6 +1305,7 @@ def api_chat():
 
     if not message:
         return jsonify({"error": "No message provided"}), 400
+    app.logger.info(f"chat | session={session_id} msg={message[:60]}")
 
     # Load or init conversation history
     history = chat_sessions.get(session_id, [])
@@ -1364,6 +1369,7 @@ def leads_generate():
     prop_type    = (data.get("prop_type") or "Buy").strip()
     notes        = (data.get("notes") or "").strip()
     output_type  = (data.get("output_type") or "email").strip().lower()  # "email" or "sms"
+    app.logger.info(f"leads | name={name} status={status} output={output_type} budget={budget}")
 
     if not name:
         return jsonify({"error": "Client name is required."}), 400
@@ -1525,6 +1531,7 @@ def deals_analyze():
 
     if purchase_price <= 0 or monthly_rent <= 0:
         return jsonify({"error": "Purchase price and monthly rent are required."}), 400
+    app.logger.info(f"deals | address={address} price=${purchase_price:,.0f} rent=${monthly_rent:,.0f}/mo rate={annual_rate}%")
 
     # ── Core calculations ──────────────────────────────────────────────
     down_payment     = purchase_price * (down_pct / 100)
@@ -1726,6 +1733,7 @@ def api_listing():
     vibe     = (data.get("neighborhood_vibe") or "").strip()
     tone     = (data.get("tone") or "Professional").strip()
 
+    app.logger.info(f"listing | address={address} beds={beds} baths={baths} sqft={sqft} tone={tone}")
     # Required field check
     if not address or not sqft or len(features) < 3:
         return jsonify({"error": "Please fill in address, sqft, and at least 3 features."}), 400
@@ -1828,6 +1836,7 @@ def api_comps():
     sqft        = (data.get("sqft") or "").strip()
     year        = (data.get("year_built") or "").strip()
     price_range = (data.get("price_range") or "").strip()
+    app.logger.info(f"comps | address={address} beds={beds} baths={baths} sqft={sqft} price_range={price_range}")
 
     if not address:
         return jsonify({"error": "Property address is required."}), 400
@@ -2055,6 +2064,7 @@ def api_showings_optimize():
 
     if len(addresses) < 1:
         return jsonify({"error": "Add at least one property to plan a route."}), 400
+    app.logger.info(f"showings | stops={len(addresses)} start={start_addr or 'none'} mins_per={showing_minutes}")
 
     # Geocode all addresses (uses free Nominatim — already imported)
     stops = []
