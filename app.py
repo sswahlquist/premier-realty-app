@@ -1726,8 +1726,20 @@ def api_listing():
     vibe     = (data.get("neighborhood_vibe") or "").strip()
     tone     = (data.get("tone") or "Professional").strip()
 
+    # Required field check
     if not address or not sqft or len(features) < 3:
         return jsonify({"error": "Please fill in address, sqft, and at least 3 features."}), 400
+
+    # Numeric range validation
+    try:
+        beds_int = int(beds) if beds else 0
+        sqft_int = int(str(sqft).replace(",", ""))
+        if beds and not (1 <= beds_int <= 20):
+            return jsonify({"error": "Beds must be between 1 and 20."}), 400
+        if not (100 <= sqft_int <= 50000):
+            return jsonify({"error": "Square footage must be between 100 and 50,000."}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "Beds and square footage must be valid numbers."}), 400
 
     tone_desc = {
         "Professional": "polished, precise, and authoritative — like a seasoned real estate professional",
