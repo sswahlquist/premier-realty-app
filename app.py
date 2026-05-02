@@ -62,9 +62,9 @@ AI_MODEL = "claude-sonnet-4-20250514"
 # ── Anthropic client (shared — created once at startup, not per request) ────────
 _anthropic_client = anthropic.Anthropic()
 
-def _claude(prompt: str, *, system: str = "", max_tokens: int = 1024) -> str:
+def _claude(prompt: str, *, system: str = "", max_tokens: int = 1024, temperature: float = 0.5) -> str:
     """Single-turn Claude call with error handling and rate-limit retry."""
-    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens,
+    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens, temperature=temperature,
                     messages=[{"role": "user", "content": prompt}])
     if system:
         kw["system"] = system
@@ -85,9 +85,9 @@ def _claude(prompt: str, *, system: str = "", max_tokens: int = 1024) -> str:
         raise
 
 
-def _claude_messages(messages: list, *, system: str = "", max_tokens: int = 1024) -> str:
+def _claude_messages(messages: list, *, system: str = "", max_tokens: int = 1024, temperature: float = 0.5) -> str:
     """Multi-turn Claude call with error handling and rate-limit retry."""
-    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens, messages=messages)
+    kw: dict = dict(model=AI_MODEL, max_tokens=max_tokens, temperature=temperature, messages=messages)
     if system:
         kw["system"] = system
     try:
@@ -565,7 +565,7 @@ COMP_2_NOTE: [sentence]
 ... (through COMP_{len(comps)}_NOTE)"""
 
     try:
-        raw = _claude(prompt, max_tokens=400)
+        raw = _claude(prompt, max_tokens=400, temperature=0.2)
         for i, comp in enumerate(comps, 1):
             marker = f"COMP_{i}_NOTE:"
             pos = raw.find(marker)
@@ -632,7 +632,7 @@ Rules:
 - Professional but readable — not overly technical
 - No markdown, no asterisks, plain prose in body sections"""
 
-    return parse_claude(_claude(prompt, max_tokens=1200))
+    return parse_claude(_claude(prompt, max_tokens=1200, temperature=0.2))
 
 
 def parse_claude(text: str) -> dict:
@@ -1069,7 +1069,7 @@ Never give tax or legal advice. If they ask something outside home affordability
     messages.append({"role": "user", "content": user_msg})
 
     try:
-        reply = _claude_messages(messages, system=system, max_tokens=600)
+        reply = _claude_messages(messages, system=system, max_tokens=600, temperature=0.3)
         messages.append({"role": "assistant", "content": reply})
         return jsonify({"reply": reply, "history": messages})
     except anthropic.AuthenticationError:
@@ -1196,7 +1196,7 @@ def neighborhood_analyze():
         return jsonify({"error": "Neighborhood name and city are required."}), 400
     app.logger.info(f"neighborhood | name={name} city={city}")
     try:
-        parsed = _parse_neighborhood(_claude(_neighborhood_prompt(name, city), max_tokens=1600))
+        parsed = _parse_neighborhood(_claude(_neighborhood_prompt(name, city), max_tokens=1600, temperature=0.3))
         return jsonify({"ok": True, "name": name, "city": city, "profile": parsed})
     except anthropic.AuthenticationError:
         return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
@@ -1245,7 +1245,7 @@ KEY_DIFFERENCES:
 Rules: Be specific and honest. No markdown. Bullets start with "- ". Pipe "|" separates label from explanation in WINNER fields."""
 
     try:
-        raw = _claude(compare_prompt, max_tokens=3200)
+        raw = _claude(compare_prompt, max_tokens=3200, temperature=0.3)
 
         # Split into sections
         a_start = raw.find("=== NEIGHBORHOOD_A ===")
@@ -1312,7 +1312,7 @@ def api_chat():
     history.append({"role": "user", "content": message})
 
     try:
-        reply = _claude_messages(history, system=ALEX_SYSTEM, max_tokens=600)
+        reply = _claude_messages(history, system=ALEX_SYSTEM, max_tokens=600, temperature=0.6)
 
         # Check for appointment data and save it
         appt_marker = "APPOINTMENT_DATA:"
@@ -1462,7 +1462,7 @@ BODY:
 [email body text]"""
 
     try:
-        raw = _claude(prompt, max_tokens=500)
+        raw = _claude(prompt, max_tokens=500, temperature=0.7)
 
         if output_type == "sms":
             sms_msg, char_count = "", 0
@@ -1671,7 +1671,7 @@ SUMMARY:
 Rules: No markdown, no asterisks. Bullets start with "- ". Be direct."""
 
     try:
-        raw = _claude(prompt, max_tokens=800)
+        raw = _claude(prompt, max_tokens=800, temperature=0.2)
 
         # Parse Claude response
         keys = ["VERDICT", "STRENGTHS", "RISKS", "IMPROVEMENTS", "SUMMARY"]
@@ -1788,7 +1788,7 @@ VERSION_3:
 Each version must end with a call to action. No titles, no headers inside the descriptions."""
 
     try:
-        raw = _claude(prompt, max_tokens=1800)
+        raw = _claude(prompt, max_tokens=1800, temperature=0.7)
 
         # Parse the three versions
         def extract(text, key):
@@ -1902,7 +1902,7 @@ COMP_1_NOTES:
 Rules: All 6 in same city/metro. Vary prices realistically. Vary distances 0.2–1.5 miles. No markdown."""
 
         try:
-            raw = _claude(prompt, max_tokens=1800)
+            raw = _claude(prompt, max_tokens=1800, temperature=0.2)
 
             for n in range(1, 7):
                 def _get(key, _raw=raw, _n=n):
