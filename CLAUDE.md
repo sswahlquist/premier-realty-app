@@ -56,7 +56,7 @@ Single-file Flask app: `app.py` (~2200 lines). All routes, helpers, and business
 ```python
 FREE_DAILY_LIMIT_PER_TOOL = 5        # Free uses per tool per day (per session)
 AI_MODEL = "claude-sonnet-4-20250514" # Claude model for all AI features
-CALENDLY_URL = "https://calendly.com/wahlquiststephen/30min"
+CALENDLY_URL = "https://calendar.app.google/m55qGMREuvoXpx5j9"
 ```
 
 ### Persistent Storage
@@ -242,4 +242,4 @@ git push origin main
 - **Target users**: Real estate agents and home buyers/sellers in the Greenville, TX area
 - **Business model**: Flat-fee setup + optional $75/mo maintenance
 - **Email**: s.s.wahlquist@gmail.com
-- **Calendly**: https://calendly.com/wahlquiststephen/30min
+- **Calendly**: https://calendar.app.google/m55qGMREuvoXpx5j9
