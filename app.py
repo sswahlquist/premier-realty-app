@@ -493,11 +493,14 @@ def _format_zillow_comps(raw_results: list[dict], subject_lat, subject_lon,
         if year:   specs_parts.append(f"Built {year}")
         specs = " / ".join(specs_parts) if specs_parts else "Details N/A"
 
-        # Distance
+        # Distance — skip comps more than 75 miles from subject (catches wrong-state results)
         distance = "—"
         if lat and lon and subject_lat and subject_lon:
             try:
                 miles = _haversine_miles(subject_lat, subject_lon, float(lat), float(lon))
+                if miles > 75:
+                    app.logger.warning(f"Zillow comp too far ({miles:.0f} mi): {full_addr} — skipping")
+                    continue
                 distance = f"{miles:.1f} miles away"
             except Exception:
                 pass
@@ -1847,12 +1850,15 @@ def api_comps():
 
     if RAPIDAPI_KEY:
         try:
+            # Geocode subject FIRST so distance filter works before accepting any results
+            subj_lat, subj_lon = _geocode(address)
             location = _extract_location(address)
+            app.logger.info(f"Zillow search | location={location} lat={subj_lat} lon={subj_lon}")
+
             raw_results = _fetch_zillow_sold(location, beds, sqft)
+            app.logger.info(f"Zillow raw results: {len(raw_results)} listings returned")
 
             if raw_results:
-                # Geocode subject to calculate distances
-                subj_lat, subj_lon = _geocode(address)
                 comps_list = _format_zillow_comps(raw_results, subj_lat, subj_lon, sqft)
 
             if comps_list:
