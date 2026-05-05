@@ -130,7 +130,7 @@
   <!-- Download CTA -->
   <div class="download-cta">
     <h3>Ready to take the next step?</h3>
-    <p>Download your full branded PDF report or connect with an agent for a professional CMA.</p>
+    <p>Download your full branded PDF report or explore nearby comparable sales.</p>
     <div class="cta-btns">
       {% if paid %}
         <a href="/download/{{ result_id }}" class="btn btn--gold btn--lg">⬇ Download PDF Report</a>
@@ -140,7 +140,6 @@
         </form>
       {% endif %}
       <a href="/comps?address={{ prop.address | urlencode }}" class="btn btn--outline btn--lg">🏘 Find Nearby Comps</a>
-      <a href="/#contact" class="btn btn--navy btn--lg">Talk to an Agent</a>
     </div>
     {% if not paid %}
     <p style="margin-top:14px;font-size:0.8rem;color:rgba(255,255,255,0.45);">
