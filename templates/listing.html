@@ -182,6 +182,98 @@
 
 .generate-again-row { text-align: center; margin-top: 32px; }
 
+/* ── Free vs Custom Comparison ─────────────────────────────── */
+.fvc-section {
+  margin: 40px 0 32px;
+}
+.fvc-heading {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.fvc-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #c8a97e;
+  margin-bottom: 8px;
+}
+.fvc-heading h3 {
+  font-family: 'Merriweather', serif;
+  font-size: 1.35rem;
+  color: #1a2332;
+  line-height: 1.35;
+}
+.fvc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+@media (max-width: 640px) { .fvc-grid { grid-template-columns: 1fr; } }
+.fvc-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 14px rgba(26,35,50,0.07);
+}
+.fvc-card--free  { border: 2px solid #fed7d7; }
+.fvc-card--custom { border: 2px solid #c8a97e; background: #fffdf9; }
+.fvc-card-top { margin-bottom: 18px; }
+.fvc-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 11px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+.fvc-badge--grey   { background: #f1f3f5; color: #6c757d; }
+.fvc-badge--gold   { background: #c8a97e; color: #1a2332; }
+.fvc-card h4 {
+  font-family: 'Merriweather', serif;
+  font-size: 0.97rem;
+  color: #1a2332;
+  line-height: 1.4;
+}
+.fvc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+  margin-top: 4px;
+}
+.fvc-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: #4a5568;
+  line-height: 1.5;
+}
+.fvc-x     { color: #e53e3e; font-weight: 800; min-width: 14px; margin-top: 2px; font-size: 0.78rem; }
+.fvc-check { color: #276749; font-weight: 800; min-width: 14px; margin-top: 2px; font-size: 0.85rem; }
+.fvc-cta-link {
+  display: block;
+  margin-top: 22px;
+  background: #c8a97e;
+  color: #1a2332;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 13px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  box-shadow: 0 3px 10px rgba(200,169,126,0.35);
+  transition: background 0.2s, transform 0.15s;
+}
+.fvc-cta-link:hover { background: #b8956a; transform: translateY(-1px); }
+
 /* ── Error ─────────────────────────────────────────────────── */
 .listing-error {
   display: none;
@@ -341,6 +433,51 @@
     </div>
 
     <div id="versionsContainer"></div>
+
+    <!-- Free vs Custom Comparison -->
+    <div class="fvc-section">
+      <div class="fvc-heading">
+        <p class="fvc-eyebrow">Free vs. Custom</p>
+        <h3>This is the free version. Here's what custom looks like.</h3>
+      </div>
+
+      <div class="fvc-grid">
+
+        <!-- Left: Free -->
+        <div class="fvc-card fvc-card--free">
+          <div class="fvc-card-top">
+            <span class="fvc-badge fvc-badge--grey">What you just got</span>
+            <h4>Free Tool &mdash; Default Settings</h4>
+          </div>
+          <ul class="fvc-list">
+            <li><span class="fvc-x">✕</span> Generic copy written for any agent, anywhere</li>
+            <li><span class="fvc-x">✕</span> No knowledge of your local market or neighborhoods</li>
+            <li><span class="fvc-x">✕</span> Same tone every agent on the platform receives</li>
+            <li><span class="fvc-x">✕</span> No MLS character limits or local formatting rules</li>
+            <li><span class="fvc-x">✕</span> Not trained on your past listings or brand voice</li>
+          </ul>
+        </div>
+
+        <!-- Right: Custom -->
+        <div class="fvc-card fvc-card--custom">
+          <div class="fvc-card-top">
+            <span class="fvc-badge fvc-badge--gold">What you get when you hire me</span>
+            <h4>Custom Version &mdash; Built for Sarah Johnson, Greenville&nbsp;TX</h4>
+          </div>
+          <ul class="fvc-list">
+            <li><span class="fvc-check">✓</span> Trained on your voice, brand, and listing history</li>
+            <li><span class="fvc-check">✓</span> Knows Greenville TX — schools, comps, and neighborhoods</li>
+            <li><span class="fvc-check">✓</span> MLS-ready: character limits and formatting built in</li>
+            <li><span class="fvc-check">✓</span> Auto-embeds your name, brand, and contact info</li>
+            <li><span class="fvc-check">✓</span> Updates as your market and niche evolve</li>
+          </ul>
+          <a href="https://calendar.app.google/m55qGMREuvoXpx5j9" target="_blank" rel="noopener" class="fvc-cta-link">
+            📅 Book a Free Call &rarr;
+          </a>
+        </div>
+
+      </div>
+    </div>
 
     {% include "_upsell.html" %}
 
