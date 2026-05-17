@@ -240,39 +240,61 @@
   color: #1a2332;
   line-height: 1.4;
 }
-.fvc-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
+.fvc-body-text {
+  font-size: 0.875rem;
+  line-height: 1.78;
   flex: 1;
   margin-top: 4px;
 }
-.fvc-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 0.875rem;
-  color: #4a5568;
-  line-height: 1.5;
-}
-.fvc-x     { color: #e53e3e; font-weight: 800; min-width: 14px; margin-top: 2px; font-size: 0.78rem; }
-.fvc-check { color: #276749; font-weight: 800; min-width: 14px; margin-top: 2px; font-size: 0.85rem; }
-.fvc-cta-link {
-  display: block;
+.fvc-card--free  .fvc-body-text { color: #6c757d; }
+.fvc-card--custom .fvc-body-text { color: #2d3748; }
+.fvc-compare-note {
+  text-align: center;
+  color: #adb5bd;
+  font-size: 0.82rem;
   margin-top: 22px;
+  line-height: 1.65;
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.fvc-cta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: #1a2332;
+  border-radius: 12px;
+  padding: 28px 36px;
+  margin-top: 24px;
+}
+.fvc-cta-bar-text {
+  color: #c8a97e;
+  font-family: 'Merriweather', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.4;
+  flex: 1;
+}
+.fvc-bar-btn {
+  display: inline-block;
   background: #c8a97e;
   color: #1a2332;
-  text-align: center;
   font-weight: 700;
-  font-size: 0.9rem;
-  padding: 13px 20px;
+  font-size: 0.92rem;
+  padding: 13px 28px;
   border-radius: 8px;
   text-decoration: none;
+  white-space: nowrap;
   box-shadow: 0 3px 10px rgba(200,169,126,0.35);
   transition: background 0.2s, transform 0.15s;
 }
-.fvc-cta-link:hover { background: #b8956a; transform: translateY(-1px); }
+.fvc-bar-btn:hover { background: #b8956a; transform: translateY(-1px); }
+@media (max-width: 600px) {
+  .fvc-cta-bar { flex-direction: column; text-align: center; padding: 24px 20px; }
+  .fvc-bar-btn { width: 100%; text-align: center; }
+}
 
 /* ── Error ─────────────────────────────────────────────────── */
 .listing-error {
@@ -449,13 +471,7 @@
             <span class="fvc-badge fvc-badge--grey">What you just got</span>
             <h4>Free Tool &mdash; Default Settings</h4>
           </div>
-          <ul class="fvc-list">
-            <li><span class="fvc-x">✕</span> Generic copy written for any agent, anywhere</li>
-            <li><span class="fvc-x">✕</span> No knowledge of your local market or neighborhoods</li>
-            <li><span class="fvc-x">✕</span> Same tone every agent on the platform receives</li>
-            <li><span class="fvc-x">✕</span> No MLS character limits or local formatting rules</li>
-            <li><span class="fvc-x">✕</span> Not trained on your past listings or brand voice</li>
-          </ul>
+          <p class="fvc-body-text">This charming 4-bedroom, 2.5-bathroom home in Greenville, Texas is a must-see! Boasting 2,200 square feet of living space, this beautiful property features an updated kitchen, gleaming hardwood floors, and a spacious backyard perfect for entertaining. The two-car garage provides ample storage, and the cul-de-sac location ensures peace and quiet. Don't miss this incredible opportunity to make this stunning house your forever home. Schedule your showing today before it's gone!</p>
         </div>
 
         <!-- Right: Custom -->
@@ -464,19 +480,18 @@
             <span class="fvc-badge fvc-badge--gold">What you get when you hire me</span>
             <h4>Custom Version &mdash; Built for Sarah Johnson, Greenville&nbsp;TX</h4>
           </div>
-          <ul class="fvc-list">
-            <li><span class="fvc-check">✓</span> Trained on your voice, brand, and listing history</li>
-            <li><span class="fvc-check">✓</span> Knows Greenville TX — schools, comps, and neighborhoods</li>
-            <li><span class="fvc-check">✓</span> MLS-ready: character limits and formatting built in</li>
-            <li><span class="fvc-check">✓</span> Auto-embeds your name, brand, and contact info</li>
-            <li><span class="fvc-check">✓</span> Updates as your market and niche evolve</li>
-          </ul>
-          <a href="https://calendar.app.google/m55qGMREuvoXpx5j9" target="_blank" rel="noopener" class="fvc-cta-link">
-            📅 Book a Free Call &rarr;
-          </a>
+          <p class="fvc-body-text">142 Oakwood sits at the end of a quiet cul-de-sac in one of Greenville's most established neighborhoods — the kind of street where kids still ride bikes and neighbors know each other by name. Inside, the 2019 kitchen remodel sets the tone: quartz counters, soft-close cabinetry, and enough prep space for the way families actually cook. Hardwood floors run throughout the main level, and the backyard is fully fenced with room for a playset, a garden, or just a Saturday afternoon. The two-car garage handles the Texas summers. Top-rated Greenville ISD schools are minutes away. If this is the neighborhood you've been waiting for, call Sarah before the weekend — homes in this pocket don't sit long.</p>
         </div>
 
       </div>
+
+      <p class="fvc-compare-note">The custom version is tuned to your voice, your MLS rules, and your market. Generic AI anyone can use. Custom AI only you have.</p>
+
+      <div class="fvc-cta-bar">
+        <span class="fvc-cta-bar-text">Want your own custom version? Starting at $200. No subscriptions.</span>
+        <a href="https://calendly.com/wahlquiststephen/30min" target="_blank" rel="noopener" class="fvc-bar-btn">Book a Free 15-Min Call &rarr;</a>
+      </div>
+
     </div>
 
     {% include "_upsell.html" %}
