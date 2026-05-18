@@ -269,13 +269,19 @@
   padding: 28px 36px;
   margin-top: 24px;
 }
-.fvc-cta-bar-text {
+.fvc-cta-bar-text { flex: 1; }
+.fvc-bar-heading {
   color: #c8a97e;
   font-family: 'Merriweather', serif;
   font-size: 1.05rem;
   font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 5px;
+}
+.fvc-bar-sub {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.85rem;
   line-height: 1.4;
-  flex: 1;
 }
 .fvc-bar-btn {
   display: inline-block;
@@ -485,10 +491,11 @@
 
       </div>
 
-      <p class="fvc-compare-note">The custom version is tuned to your voice, your MLS rules, and your market. Generic AI anyone can use. Custom AI only you have.</p>
-
       <div class="fvc-cta-bar">
-        <span class="fvc-cta-bar-text">Want your own custom version? Starting at $200. No subscriptions.</span>
+        <div class="fvc-cta-bar-text">
+          <p class="fvc-bar-heading">Want this customized for your MLS, your voice, and your market?</p>
+          <p class="fvc-bar-sub">Starting at $200. No subscriptions. You own it forever.</p>
+        </div>
         <a href="https://calendly.com/wahlquiststephen/30min" target="_blank" rel="noopener" class="fvc-bar-btn">Book a Free 15-Min Call &rarr;</a>
       </div>
 
