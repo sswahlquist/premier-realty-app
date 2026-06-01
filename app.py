@@ -57,7 +57,7 @@ app.logger.addHandler(_handler)
 app.logger.setLevel(logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
 
-AI_MODEL = "claude-sonnet-4-20250514"
+AI_MODEL = "claude-sonnet-4-6"
 
 # ── Anthropic client (shared — created once at startup, not per request) ────────
 _anthropic_client = anthropic.Anthropic()
@@ -116,7 +116,7 @@ WATERMARK_LINE = (
 WATERMARK = "\n\n" + WATERMARK_LINE
 
 # Daily per-session, per-tool generation limit for free users. Resets at midnight UTC.
-FREE_DAILY_LIMIT_PER_TOOL = 5
+FREE_DAILY_LIMIT_PER_TOOL = 3
 CALENDLY_URL              = "https://calendar.app.google/m55qGMREuvoXpx5j9"
 
 # Friendly tool labels used in the limit message
@@ -1361,18 +1361,42 @@ def leads():
     return render_template("leads.html")
 
 
+def _safe_json_parse(raw: str):
+    """Best-effort parse of a model JSON reply. Strips markdown code fences, then
+    falls back to the substring between the first { and last }. Returns a dict on
+    success or None on failure — never raises."""
+    if not raw:
+        return None
+    text = raw.strip()
+    # Strip ```json ... ``` / ``` ... ``` fences if the model wrapped the JSON.
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z0-9]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    # Fallback: grab everything between the first { and the last }.
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(text[start:end + 1])
+        except Exception:
+            return None
+    return None
+
+
 @app.route("/leads/generate", methods=["POST"])
 @gate_json("leads")
 def leads_generate():
-    data         = request.get_json()
+    data         = request.get_json(silent=True) or {}
     name         = (data.get("name") or "").strip()
     status       = (data.get("status") or "New").strip()
     budget       = (data.get("budget") or "").strip()
     neighborhoods = (data.get("neighborhoods") or "").strip()
     prop_type    = (data.get("prop_type") or "Buy").strip()
     notes        = (data.get("notes") or "").strip()
-    output_type  = (data.get("output_type") or "email").strip().lower()  # "email" or "sms"
-    app.logger.info(f"leads | name={name} status={status} output={output_type} budget={budget}")
+    app.logger.info(f"leads | name={name} status={status} budget={budget}")
 
     if not name:
         return jsonify({"error": "Client name is required."}), 400
@@ -1419,91 +1443,81 @@ def leads_generate():
     if notes:
         details_block += f"\nNotes from last conversation:\n{notes}\n"
 
-    if output_type == "sms":
-        prompt = f"""You are a top real estate agent writing a personalized SMS follow-up to a client.
+    # ── One prompt → all three drafts, returned as JSON ─────────────────────────
+    prompt = f"""You are Stephen Wahlquist, a top real estate agent, writing personalized \
+follow-up messages to a client. Produce THREE drafts at once from the same client context.
 
 CLIENT DETAILS:
 {details_block}
 
-STATUS GUIDANCE:
+STATUS GUIDANCE (match tone and urgency exactly):
 {status_guidance}
 
-Write ONE SMS message. Requirements:
-- Maximum 160 characters (hard limit — count carefully)
-- Must feel personal and reference something specific from the notes if provided
-- Natural, human tone — not robotic or template-sounding
-- No salesy buzzwords
-- End with your name: Stephen
+Produce three outputs:
 
-Respond with ONLY this format (no extra commentary):
-SMS_MESSAGE:
-[the message text]
-CHAR_COUNT:
-[integer character count of the message only]"""
+1. EMAIL
+   - Subject line: specific and compelling, references something from the notes.
+   - Body: under 150 words, personalized to the lead status and notes, conversational
+     paragraphs (no bullet lists), natural human tone. End with the name "Stephen Wahlquist".
 
-    else:
-        prompt = f"""You are a top real estate agent writing a personalized follow-up email to a client.
+2. SMS
+   - ONE text message, MAXIMUM 160 characters. Hard limit — count exactly and never exceed it.
+   - Conversational, reads like a real human text — NOT a compressed version of the email.
+   - No salesy buzzwords. Reference something specific from the notes if provided.
 
-CLIENT DETAILS:
-{details_block}
+3. SOCIAL DM (for LinkedIn or Facebook Messenger)
+   - 2-3 sentences only — shorter in feel than the SMS.
+   - Casual and personal, ZERO sales language. No subject line, no sign-off.
 
-STATUS GUIDANCE:
-{status_guidance}
-
-Write a follow-up email. Requirements:
-- Subject line: punchy, specific, not generic — ideally references something personal or timely
-- Body: under 150 words, conversational paragraphs, no bullet lists
-- Must feel personal and reference something specific from the notes if provided
-- Natural, human tone — like a trusted advisor, not a mass email
-- End with your name: Stephen Wahlquist
-- No salesy buzzwords or clichés
-
-Respond with ONLY this format (no extra commentary):
-SUBJECT:
-[subject line text]
-BODY:
-[email body text]"""
+Respond with ONLY valid JSON in EXACTLY this shape — no markdown, no code fences, no commentary:
+{{
+  "email": {{"subject": "", "body": ""}},
+  "sms": {{"message": "", "char_count": 0}},
+  "social_dm": {{"message": ""}}
+}}"""
 
     try:
-        raw = _claude(prompt, max_tokens=500, temperature=0.7)
+        raw    = _claude(prompt, max_tokens=1200, temperature=0.7)
+        parsed = _safe_json_parse(raw)
+        if not isinstance(parsed, dict):
+            app.logger.warning("leads | could not parse model JSON")
+            return jsonify({"error": "Generation failed — please try again."}), 502
 
-        if output_type == "sms":
-            sms_msg, char_count = "", 0
-            msg_start = raw.find("SMS_MESSAGE:")
-            cnt_start = raw.find("CHAR_COUNT:")
-            if msg_start != -1:
-                msg_end  = cnt_start if cnt_start != -1 else len(raw)
-                sms_msg  = raw[msg_start + len("SMS_MESSAGE:"):msg_end].strip()
-            if cnt_start != -1:
-                cnt_raw  = raw[cnt_start + len("CHAR_COUNT:"):].strip().split()[0]
-                try:
-                    char_count = int(cnt_raw)
-                except ValueError:
-                    char_count = len(sms_msg)
-            if not char_count:
-                char_count = len(sms_msg)
-            if sms_msg:
-                sms_msg    = sms_msg + WATERMARK
-                char_count = len(sms_msg)
-            return jsonify({"ok": True, "type": "sms", "message": sms_msg, "char_count": char_count})
+        email  = parsed.get("email")      or {}
+        sms    = parsed.get("sms")        or {}
+        social = parsed.get("social_dm")  or {}
 
-        else:
-            subject, body = "", ""
-            subj_start = raw.find("SUBJECT:")
-            body_start = raw.find("BODY:")
-            if subj_start != -1:
-                subj_end = body_start if body_start != -1 else len(raw)
-                subject  = raw[subj_start + len("SUBJECT:"):subj_end].strip()
-            if body_start != -1:
-                body = raw[body_start + len("BODY:"):].strip()
-            if body:
-                body = body + WATERMARK
-            return jsonify({"ok": True, "type": "email", "subject": subject, "body": body})
+        subject    = (email.get("subject")  or "").strip()
+        body       = (email.get("body")     or "").strip()
+        sms_msg    = (sms.get("message")    or "").strip()
+        social_msg = (social.get("message") or "").strip()
 
-    except anthropic.AuthenticationError:
-        return jsonify({"error": "API key missing. Set ANTHROPIC_API_KEY."}), 500
+        # Valid JSON but no usable content → treat as a failed generation rather
+        # than rendering three blank cards.
+        if not (body or sms_msg or social_msg):
+            app.logger.warning("leads | parsed JSON contained no draft content")
+            return jsonify({"error": "Generation failed — please try again."}), 502
+
+        # Count exactly on the server — never trust the model's self-reported count.
+        char_count = len(sms_msg)
+
+        # Watermark only the email body (where it fits). The SMS must stay within
+        # the 160-char limit, and the social DM is required to carry zero sales language.
+        if body:
+            body = body + WATERMARK
+
+        return jsonify({
+            "ok":        True,
+            "email":     {"subject": subject, "body": body},
+            "sms":       {"message": sms_msg, "char_count": char_count},
+            "social_dm": {"message": social_msg},
+        })
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Catches auth errors, connection/API errors, and anything unexpected —
+        # the user never sees a traceback, only a friendly retry message.
+        app.logger.warning(f"leads | generation failed: {e}")
+        return jsonify({"error": "Generation failed — please try again."}), 500
 
 
 @app.route("/deals")
